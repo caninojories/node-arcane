@@ -1,0 +1,43 @@
+{
+  "name": "arcane",
+  "version": "2.0.6",
+  "private": false,
+  "description": "MVC Framework for nodejs.",
+  "main": "system/index.js",
+  "scripts": {
+    "start": "nodemon ./",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "MVC",
+    "Web Services"
+  ],
+  "bin": {
+    "arce": "bin/arce"
+  },
+  "author": "Juvic Martires",
+  "license": "ISC",
+  "dependencies": {
+    "canvas": "^1.2.10",
+    "cli-table": "^0.3.1",
+    "colors": "^1.0.3",
+    "deep-diff": "^0.3.0",
+    "fibers": "^1.0.8",
+    "fs-extra": "^0.16.5",
+    "harmony-proxy": "0.0.2",
+    "hashish": "0.0.4",
+    "http-proxy": "^1.9.0",
+    "jsondiffpatch": "^0.1.31",
+    "mysql": "^2.5.5",
+    "nodeproxy": "^1.0.0",
+    "querystring": "^0.2.0",
+    "response": "^0.14.0",
+    "shelljs": "^0.4.0",
+    "sqli": "0.0.4",
+    "sqlite3": "^3.1.0",
+    "threads": "^0.5.3",
+    "usage": "^0.7.0",
+    "websocket": "^1.0.21"
+  },
+  "preferGlobal": "true"
+}

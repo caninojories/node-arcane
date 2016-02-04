@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>HTTP Error 500 - Internal Server Error</title>
+	<style type="text/css">
+		body {
+			padding: 0px 20px;
+		}
+	</style>
+</head>
+<body>
+<h4 style="color: red;margin-bottom: 5px;">HTTP Error 500 - Internal Server Error</h4>
+<p style="margin-top: 0px; font-weight: bold; font-size: 12px;">The request page connot be accesed because the related configuration data for the page is invalid.</p>
+<lagend style="display: block; padding: 10px; border: 1px solid #ECE3B6; background-color: #FFF9DB; margin-top: 30px; font-size: 13px;">
+	{% if is_normalize %}
+		{{error_msg}}
+	{% else %}
+		{{error_msg.replace(/\n/g, '<br/>').replace(/\s/g, '&nbsp;')}}
+	{% end %}
+</lagend>
+<br />
+<lagend style="display: block; border: 1px solid #CAC1AB; background: #FDFAF2; margin-top: 20px; padding: 5px 30px;"><h5 style="margin-bottom: 0px; margin-top: 5px;">More Information:</h5>
+	<p style="margin-top: 10px; font-size: 11px; ">This error accurs when there is a problem reading the configuration file for the Web server or Web application. In some cases, the event logs may contain more information about what cause this error.</p>
+</lagend>
+</body>
+</html>

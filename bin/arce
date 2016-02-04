@@ -1,0 +1,509 @@
+#!/usr/bin/env node
+
+require('shelljs/global');
+
+var readline = require('readline');
+var Table = require('cli-table');
+
+var fs = require('fs'),
+    path = require('path'),
+    events = require('events'),
+    exec = require('child_process').exec,
+    spawn = require('child_process').spawn,
+    colors = require('colors'),
+    initiator = require(__dirname + '/../lib/Initiator.js');
+
+var arc_system_location = '/var/arcane';
+
+var is_running = function(pid, cb) {
+    var err = null,
+        result = null;
+    if (typeof pid !== 'number') {
+        err = "you must pass a pid as the first argument";
+    } else {
+        result = tryKill(pid);
+    }
+    if (cb) {
+        return cb(err, result);
+    }
+    if (err) {
+        return err;
+    }
+    return result;
+};
+
+var tryKill = function(pid) {
+    var result;
+    try {
+        result = process.kill(pid, 0);
+        return result;
+    } catch (e) {
+        return true;
+    }
+};
+
+var server_stop = function() {
+    var pid = fs.readFileSync(arc_system_location + '/arc.pid', "utf8");
+    try {
+        if(pid.length !== 0) process.kill(pid, 'SIGINT');
+    } catch (err) {
+        fs.unlinkSync(arc_system_location + '/arc.pid');
+    }
+};
+
+var startDaemon = function(is_restart) {
+    var monitor, outFD, monitorPath;
+
+    if (fs.existsSync(arc_system_location + '/arc.pid') && !is_restart) {
+        var pid = fs.readFileSync(arc_system_location + '/arc.pid', "utf8");
+        if (is_running(Number(pid))) {
+            //console.log('Server is already running.');+
+            server_stop();
+            startDaemon(true);
+            return;
+        }
+    }
+
+    var logs_exists = fs.existsSync(arc_system_location + '/logs');
+
+    if (logs_exists) {
+        fs.unlinkSync(arc_system_location + '/logs');
+    }
+
+    spawn('mknod', [arc_system_location + '/logs', 'p']);
+    fs.createWriteStream(arc_system_location + '/logs');
+
+    //outFD = fs.openSync(arc_system_location + '/output.log', 'w');
+    outFD = fs.openSync(arc_system_location + '/logs', 'w+');
+
+    //outFD = fs.createReadStream(arc_system_location + '/logs', {flags:'a'});
+
+    monitorPath = path.resolve(__dirname, '..');
+    monitor = spawn(process.execPath, ['--harmony-proxies', '--harmony', '--expose-gc', monitorPath], {
+        stdio: ['ignore', outFD, outFD],
+        detached: true
+    });
+
+    monitor.on('exit', function(code) {
+        console.error('Monitor died unexpectedly with exit code %d', code);
+    });
+
+    monitor.unref();
+    setTimeout(function() {
+        var json = fs.readFileSync(__dirname + '/../package.json', "utf8");
+        console.log('ArcEngine v' + JSON.parse(json).version);
+    }, 1000);
+};
+
+var c_next = 0,
+    c_directory = null,
+    v_vproc = [],
+    vh_values = {},
+    has_change = false;
+c_vhlist = {
+    '-list': function(value) {
+        if (Object.keys(vh_values).length === 0) {
+            console.log('\n  No virtual host.\n'.green);
+        } else {
+            for (var i in vh_values) {
+                console.log('\n  HOST: '.green + i.underline.yellow + ' ' + vh_values[i].DocumentRoot);
+            }
+            console.log('\n');
+        }
+    },
+    '-add': function(value) {
+        if (value) {
+            var directory = process.argv[c_next + 2],
+                dir_resolve = directory && require('path').resolve(directory),
+                exists = directory && fs.existsSync(dir_resolve);
+            var stats = exists && fs.statSync(dir_resolve);
+            var isDirectory = exists && stats.isDirectory(),
+                validate = null;
+            if (typeof directory === 'undefined') {
+                validate = ls(process.cwd());
+                if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+                    vh_values[value] = {
+                        DocumentRoot: process.cwd()
+                    };
+                    console.log('\n  Directory \'' + process.cwd().green + '\' is added as ' + value.underline.yellow + '.\n'.green);
+                    has_change = true;
+                } else console.log('\n  ERROR: '.red + 'Current directory is not a valid \'ArcEngine\' project.\n');
+            } else if (isDirectory) {
+                validate = ls(dir_resolve);
+                if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+                    vh_values[value] = {
+                        DocumentRoot: dir_resolve
+                    };
+                    console.log('\n  Directory \'' + dir_resolve.green + '\' is added as ' + value.underline.yellow + '.\n'.green);
+                    has_change = true;
+                } else console.log('\n  ERROR: '.red + '\'' + dir_resolve.underline + '\' is not a valid \'ArcEngine\' project.\n');
+            } else console.log('\n  ERROR: '.red + 'Directory is not exists.\n'.underline);
+        } else {
+            console.log('\n  ERROR: '.red + 'No hostname define.\n'.underline);
+        }
+    },
+    '-remove': function(value) {
+        if (value) {
+            if (vh_values[value]) {
+                delete vh_values[value];
+                has_change = true;
+
+                console.log('\n  ' + value.underline.yellow + ' is removed from list.\n');
+
+            } else console.log('\n  ERROR: '.red + 'Hostname not exists.\n'.underline);
+        } else {
+            console.log('\n  ERROR: '.red + 'No hostname define.\n'.underline);
+        }
+    },
+    '-change': function(value) {
+        console.log('\n  Command Reserve'.green + '\n');
+    },
+    '-update': function(value) {
+        console.log('\n  Command Reserve'.green + '\n');
+    }
+};
+
+var vhost = function(command) {
+    if (command) {
+        if (c_vhlist[command]) {
+            if (!process.argv[c_next + 1] || /^\-/g.exec(process.argv[c_next + 1])) {
+                var proc1 = c_vhlist[command](null);
+                if (proc1) v_vproc.push(proc1);
+                c_next += 1;
+            } else {
+                var proc2 = c_vhlist[command](process.argv[c_next + 1]);
+                if (proc2) v_vproc.push(proc2);
+                c_next += 2;
+            }
+            //vhost(process.argv[c_next]);
+        } else {
+            echo('invalid command of vhost: ' + command);
+        }
+    } else {
+        //show help
+    }
+};
+
+var vhost_load = function() {
+    vh_values = __arc_engine.vhost;
+};
+
+var vhost_update = function() {
+    if (has_change) {
+        JSON.stringify(vh_values).to(arc_system_location + '/vhost.json');
+    }
+};
+
+function camelize(str) {
+    return str.replace(/(?:^\w|[A-Z]|\b\w)/g, function(letter, index) {
+        return index === 0 ? letter.toLowerCase() : letter.toUpperCase();
+    }).replace(/\s+/g, '');
+}
+
+vhost_load();
+switch (process.argv[2]) {
+    case 'run':
+        startDaemon();
+        break;
+    case 'stop':
+        server_stop();
+        break;
+    // case 'restart':
+    //     server_stop();
+    //     startDaemon(true);
+    //     break;
+    case 'vhost':
+        c_next = 3;
+        vhost(process.argv[c_next]);
+        vhost_update();
+        break;
+    case 'new-controller':
+        //if (process.argv[3]) {
+            var validate = ls(process.cwd());
+            if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+                var rl = readline.createInterface({
+                    input: process.stdin,
+                    output: process.stdout
+                });
+                console.log("\nCreating new Controller file\n".green);
+                var controller_name_func = function() {
+                    rl.question("\nController Name: ".yellow, function(filename) {
+                        var controller_name = filename.replace(/^[a-z]/g, function(match) {
+                            return match.toUpperCase();
+                        }) + 'Controller';
+                        if (ls('apps').indexOf(controller_name) != -1) {
+                            console.log('\n  ERROR: '.red + controller_name.underline.yellow + ' is already exist.\n');
+                            controller_name_func();
+                        } else {
+                            cp('-r', __dirname + '/../storage/empty/Controller/*', 'apps/' + controller_name);
+                            var config_data = fs.readFileSync(process.cwd() + '/apps/' + controller_name + '/index.coffee', 'utf8');
+                            config_data = config_data.replace(/\{\{controller\}\}/g, controller_name.replace(/Controller$/g, ''));
+                            fs.writeFileSync(process.cwd() + '/apps/' + controller_name + '/index.coffee', config_data, 'utf8');
+                            mkdir('apps/' + controller_name + '/models');
+                            console.log('\n  Added a new apps \''.green + controller_name.green + '\'.\n'.green);
+                            rl.close();
+                        }
+                    });
+                };
+                controller_name_func();
+            } else {
+                console.log('\n  ERROR: '.red + 'Current directory is not a valid ArcEngine project.\n');
+            }
+        //} else console.log('\n  ERROR: '.red + 'new app name required.\n');
+        break;
+    case 'new-config':
+        var validate = ls(process.cwd());
+        if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+            var config_data = fs.readFileSync(__dirname + '/../storage/empty/Configuration.coffee', 'utf8');
+            var rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            var config_group = function(filename) {
+                rl.question("\nConfiguration Group Name: ".yellow, function(group) {
+                    if (group.trim().length === 0) {
+                        console.log('\n\n\t\tConfiguration group is required.\n\n'.red);
+                        config_group(filename);
+                    } else {
+                        var target_file = process.cwd() + '/config/' + filename + '.coffee';
+                        if (!fs.existsSync(target_file)) {
+                            config_data = config_data.replace(/\{\{group\-name\}\}/g, group);
+                            fs.writeFileSync(target_file, config_data, 'utf8');
+                            console.log('\n  Configuration \''.green + target_file + '\' is created.\n'.green);
+                            rl.close();
+                        } else {
+                            console.log('\n\n\t\tConfiguration file \'' + target_file + '\' is already exists.\n\n'.red);
+                            config_name();
+                        }
+                    }
+                });
+            };
+            console.log("\nCreating new Configuration file\n".green);
+            var config_name = function() {
+                rl.question("\nConfiguration Name: ".yellow, function(filename) {
+                    if (filename.trim().length === 0) {
+                        console.log('\n\n\t\tConfiguration name is required.\n'.red);
+                        config_name();
+                    } else {
+                        config_group(filename.trim());
+                    }
+                });
+            };
+            config_name();
+        } else {
+            console.log('\n  ERROR: '.red + 'Current directory is not a valid ArcEngine project.\n');
+        }
+        break;
+    case 'new-model':
+        var validate = ls(process.cwd());
+        if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+            var model_data = fs.readFileSync(__dirname + '/../storage/empty/Model.coffee', 'utf8');
+            var controller_list = fs.readdirSync(process.cwd() + '/apps');
+            var rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            var create_model = function(options) {
+                var target_file = process.cwd() + '/models/' + options.filename + '.coffee';
+                if (options.controller) {
+                    for (var i in controller_list) {
+                        if (controller_list[i].toLowerCase().indexOf(options.controller) === 0) {
+                            target_file = process.cwd() + '/apps/' + controller_list[i] + '/models/' + options.filename + '.coffee';
+                            if (!fs.existsSync(process.cwd() + '/apps/' + controller_list[i] + '/models')) {
+                                mkdir(process.cwd() + '/apps/' + controller_list[i] + '/models');
+                            }
+                            break;
+                        }
+                    }
+                }
+                if (!fs.existsSync(process.cwd() + '/models')) {
+                    mkdir(process.cwd() + '/models');
+                }
+                if (!fs.existsSync(target_file)) {
+                    if (options.connection && options.connection.trim().length !== 0) {
+                        model_data = model_data.replace(/\{\{connection\-name\}\}/g, options.connection);
+                    }
+                    fs.writeFileSync(target_file, model_data, 'utf8');
+                    console.log('\n  Model \''.green + target_file + '\' is created.\n'.green);
+                    rl.close();
+                } else {
+                    console.log('\t\tModel is already exists.'.red);
+                    call_model_name();
+                }
+            };
+            var constroller_list_func = function(options) {
+                console.log('\nController List:\n\n'.bold.underline.cyan);
+                if (controller_list.length === 0) {
+                    console.log('\t\tNo controller found.'.red);
+                }
+                var table = new Table({
+                        chars: {
+                            'top': '',
+                            'top-mid': '',
+                            'top-left': '',
+                            'top-right': '',
+                            'bottom': '',
+                            'bottom-mid': '',
+                            'bottom-left': '',
+                            'bottom-right': '',
+                            'left': '',
+                            'left-mid': '',
+                            'mid': '',
+                            'mid-mid': '',
+                            'right': '',
+                            'right-mid': '',
+                            'middle': ''
+                        }
+                    }),
+                    count_row = 0,
+                    rows = [],
+                    overall_list = [];
+                for (var i in controller_list) {
+                    var controler_name = controller_list[i].toLowerCase().replace(/controller$/g, '');
+                    overall_list.push(controler_name);
+                    rows.push(controler_name);
+                    count_row++;
+                    if (count_row === 5) {
+                        count_row = 0;
+                        table.push(rows);
+                        rows = [];
+                    }
+                }
+                if (rows.length !== 0) {
+                    table.push(rows);
+                }
+                console.log(table.toString());
+                console.log('\n');
+
+                rl.question("Target Controller (Leave empty for default directory): ".yellow, function(target_controller) {
+
+                    if (target_controller.trim().length !== 0) {
+                        if (overall_list.indexOf(target_controller.trim()) !== -1) {
+                            options.controller = target_controller.trim();
+                            create_model(options);
+                        } else {
+                            console.log('\n Unable to find controller \''.red + target_controller.trim().red + '\' \n\n'.red);
+                            constroller_list_func(options);
+                        }
+                    } else {
+                        create_model(options);
+                    }
+
+                });
+            };
+            var call_model_name = function() {
+                rl.question("Creating new Model file\n".green + "\nModel/Table Name: ".yellow, function(filename) {
+                    if (filename.trim().length !== 0) {
+                        rl.question("Connection Name (Optional): ".yellow, function(connection_name) {
+                            constroller_list_func({
+                                filename: filename,
+                                connection: connection_name
+                            });
+                        });
+                    } else call_model_name();
+                });
+            };
+            call_model_name();
+        } else {
+            console.log('\n  ERROR: '.red + 'Current directory is not a valid ArcEngine project.\n');
+        }
+        break;
+    case 'new-project':
+        if (process.argv[3]) {
+            var directory = require('path').resolve(process.argv[3]),
+                exists = directory && fs.existsSync(directory);
+            var stats = exists && fs.statSync(directory);
+            var isDirectory = exists && stats.isDirectory();
+            if (!isDirectory) {
+                mkdir(directory);
+                mkdir(directory + '/apps');
+                mkdir(directory + '/libraries');
+                mkdir(directory + '/template');
+                mkdir(directory + '/models');
+                cp('-r', __dirname + '/../storage/installer/*', directory);
+                console.log('\n  Project \''.green + process.argv[3].green + '\' is created.\n'.green);
+            } else {
+                console.log('\n  ERROR: '.red + 'Directory is already exists.\n');
+            }
+        } else {
+            var validate = ls(process.cwd());
+            if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+                console.log('\n  ERROR: '.red + 'Unable to create project.\n');
+            } else {
+                cp('-r', __dirname + '/../storage/installer/*', process.cwd());
+                mkdir(process.cwd() + '/apps');
+                mkdir(process.cwd() + '/libraries');
+                mkdir(process.cwd() + '/template');
+                mkdir(process.cwd() + '/models');
+                console.log('\n  Project is created.\n'.green);
+            }
+        }
+        break;
+    case 'new-socket':
+        var validate = ls(process.cwd());
+        if (validate.indexOf('apps') != -1 && validate.indexOf('config') != -1 && validate.indexOf('views') != -1 && validate.indexOf('assets') != -1) {
+            var socket_data = fs.readFileSync(__dirname + '/../storage/empty/SocketIO.coffee', 'utf8');
+            var rl = readline.createInterface({
+                input: process.stdin,
+                output: process.stdout
+            });
+            console.log("\nCreating new SocketIO file\n".green);
+            var sicket_name = function() {
+                rl.question("\nSocket Trigger Name: ".yellow, function(name) {
+                    if (name.trim().length === 0) {
+                        console.log('\n\n\t\tSocket Trigger name is required.\n'.red);
+                        sicket_name();
+                    } else {
+                        if (!fs.existsSync(process.cwd() + '/socketio')) {
+                            mkdir(process.cwd() + '/socketio');
+                        }
+                        var target_file = process.cwd() + '/socketio/' + name.trim().toLowerCase() + '.coffee';
+                        if (!fs.existsSync(target_file)) {
+                            socket_data = socket_data.replace(/\{\{name\}\}/g, camelize(name.trim()).replace(/^./g, function(match) { return match.toUpperCase(); }));
+                            fs.writeFileSync(target_file, socket_data, 'utf8');
+                            console.log('\n  Socket Trigger \''.green + target_file + '\' is created.\n'.green);
+                            rl.close();
+                        } else {
+                            console.log('\n\n\t\tSocket Trigger file \'' + target_file + '\' is already exists.\n\n'.red);
+                            config_name();
+                        }
+                    }
+                });
+            };
+            sicket_name();
+        } else {
+            console.log('\n  ERROR: '.red + 'Current directory is not a valid ArcEngine project.\n');
+        }
+        break;
+    case 'trace':
+        var tracer = function() {
+            var n2c = fs.createReadStream(arc_system_location + '/logs', {flags : 'r+'});
+            n2c.on('data', function(chunk){
+                //console.log(b.toString('utf-8').replace(/\n$/g, ''));
+
+                var display = chunk.toString('utf-8').trim('\n').replace(/(ReferenceError|Error|ERROR|TypeError)\:\s.+?\n/g, function(match) {
+                    var type = match.split(': ');
+                    return type[0].red + ': ' + type[1].italic.yellow;
+                });
+
+                display = display.replace(/\s+at\s/g, function(match) {
+                    return match.red;
+                });
+
+                if (!/(ReferenceError|Error|ERROR|TypeError)\:\s.+?\n/g.exec(display)) {
+                    display = display.replace(/^[0-9a-zA-Z]/g, function(match) {
+                        return 'trace: '.green + match;
+                    });
+
+                    display = display.replace(/\n[0-9a-zA-Z]/g, function(match) {
+                        return '\ntrace: '.green + match.trim('\n');
+                    });
+                }
+
+                console.log(display);
+
+            });
+        };
+        tracer();
+        break;
+}

@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>System Trace</title>
+
+	<style type="text/css">
+		body, html {
+			padding: 0px;
+			margin: 0px;
+			background-color: #000;
+    		color: #B3B3B3;
+		}
+
+		body p {
+			padding: 0px;
+			margin: 0px;
+			font-size: 9pt;
+    		font-family: Arial;
+		}
+	</style>
+
+	{{ArcSocketIO_js}}
+	<script type="text/javascript" src="{{req.baseUrl}}/js/jquery-1.11.2.min.js"></script>
+	<script type="text/javascript">
+
+		 var entityMap = {
+		    "&": "&amp;",
+		    "<": "&lt;",
+		    ">": "&gt;",
+		    '"': '&quot;',
+		    "'": '&#39;',
+		    "/": '&#x2F;'
+		  };
+
+		  function escapeHtml(string) {
+		    return String(string).replace(/[&<>"'\/]/g, function (s) {
+		      return entityMap[s];
+		    });
+		  }
+
+		jQuery(function($) {
+			var socket = io();
+
+			socket.on('trace', function(data) {
+				data = escapeHtml(data).replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;').replace(/\n/g, '<br/>').replace(/\s/g, '&nbsp;&nbsp;');
+
+				data = data.toString('utf-8').trim('\n').replace(/(ReferenceError|Error|ERROR|TypeError)\:\&nbsp\;.+?\<br\/\>/g, function(match) {
+                    var type = match.split(':&nbsp;');
+                    return '<br/><span style="color: #FF4444; font-weight: bold;">' + type[0] + '</span>:&nbsp;<span style="color: #949400; font-style: italic; font-weight: bold;">' + type[1] + '</span>';
+                });
+
+                data = data.replace(/\&nbsp\;\&nbsp\;\&nbsp\;\&nbsp\;\&nbsp\;\&nbsp\;\&nbsp\;\&nbsp\;at\&nbsp\;/g, function(match) {
+                    return '<span style="color: #FF4444;">' + match + '</span>';
+                });
+
+				$('body').append($('<p />').html('<span style="color: green; font-weight: bold;">Trace: </span>' + data));
+
+				if( $('body > p').length >= 25 ) {
+					for(var i = 0; i <= ($('body > p').length - 25); i++) {
+						$('body > p').first().remove();
+					}
+				}
+
+				$("body").scrollTop($("body")[0].scrollHeight);
+			});
+
+		});
+	</script>
+
+</head>
+<body>
+	
+</body>
+</html>
