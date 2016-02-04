@@ -191,6 +191,8 @@ class httpServer extends Middleware
 
 	res_serv.set =
 	res_serv.header = (field, val) ->
+		throw 'done' if @finished
+
 		if arguments.length == 2
 			value = if Array.isArray(val) then val.map(String) else String(val)
 			# add charset to content-type
