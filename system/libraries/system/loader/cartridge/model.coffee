@@ -387,8 +387,8 @@ class model extends Middleware
 
 				object_data.result_length = result.length
 
-				if object_data.is_one and result.length isnt 1
-					throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
+				# if object_data.is_one and result.length isnt 1
+				# 	throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
 
 				for i in result
 					object_data.data_rows.push model.build_query_model model_data, builder, i, {id: i.id}, model_list
@@ -442,7 +442,6 @@ class model extends Middleware
 							delete __build.defaults if __build.defaults
 							try 
 								build_query.get(__build)
-								do update_rows
 								ret = build_query
 							catch err
 								if object_data.result_length is 0
@@ -463,7 +462,6 @@ class model extends Middleware
 							delete __build.defaults if __build.defaults
 							try 
 								a = build_query.get(__defaults)
-								do update_rows
 								a.update(__build)
 								ret = build_query
 							catch err
@@ -507,7 +505,6 @@ class model extends Middleware
 								model.init_connection.sync null, model_data
 							catch err
 								console.log err.stack ? err
-
 							if type is 'create'
 								try
 									object_data.data_resource = {}
@@ -535,9 +532,13 @@ class model extends Middleware
 							return build_query
 
 					when 'get'
-						object_data.is_one = true
+						# object_data.is_one = true
 						return ->
 							build_query.filter.apply build_query, arguments
+
+							if build_query.length isnt 1
+								throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
+
 							return build_query
 
 					when 'all'
@@ -696,7 +697,7 @@ class model extends Middleware
 						apply: (target, thisArg, argumentsList) ->
 							query_b = new model.Query.Query dialect: target_model.conn.dialect
 							# tmp = query_b.insert().into(target_model.table).set argumentsList[0]
-							return model.build_query_model target_model, query_b, argumentsList[0], null, model.global_model[$root]
+							return model.build_query_model target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root]
 					}
 
 				else
