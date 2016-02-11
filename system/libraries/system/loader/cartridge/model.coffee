@@ -417,8 +417,6 @@ class model extends Middleware
 						__removed_query++
 
 				object_data.query.push ['where', [or: __or]]
-				
-				console.log object_data.query
 
 			object_data.data_rows = []
 
