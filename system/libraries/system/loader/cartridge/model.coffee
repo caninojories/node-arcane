@@ -363,6 +363,7 @@ class model extends Middleware
 			data_rows: []
 			data_condition: {}
 			query: null
+			result_length: 0
 		}
 
 		update_rows = (return_query) ->
@@ -383,6 +384,8 @@ class model extends Middleware
 					result = model_data.conn.query.sync model_data.conn, query.build()
 				catch err
 					console.log err.stack ? err
+
+				object_data.result_length = result.length
 
 				if object_data.is_one and result.length isnt 1
 					throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
@@ -433,23 +436,47 @@ class model extends Middleware
 				switch name
 					when 'get_or_create'
 						return (build)->
+							is_created = false
 							__build = util._extend {}, build
 							__defaults = util._extend {}, build.defaults ? {}
+
 							delete __build.defaults if __build.defaults
+
 							try 
 								build_query.get(__build)
 								do update_rows
 							catch err
-								for i, v of __build
-									__defaults[i] = v
-								build_query.create(__defaults)
+								if object_data.result_length is 0
+									for i, v of __build
+										__defaults[i] = v
+									build_query.create(__defaults)
+									is_created = true
+								else
+									throw err
 
-							return build_query
+							return [build_query, is_created]
 
 					when 'update_or_create'
 						return (build)->
+							is_created = false
+							__build = util._extend {}, build
+							__defaults = util._extend {}, build.defaults ? {}
 
-							return build_query
+							delete __build.defaults if __build.defaults
+
+							try 
+								a = build_query.get(__defaults)
+								a.update(__build)
+							catch err
+								if object_data.result_length is 0
+									for i, v of __build
+										__defaults[i] = v
+									build_query.create(__defaults)
+									is_created = true
+								else
+									throw err
+
+							return [build_query, is_created]
 
 					when 'latest'
 						return (field_date)->
