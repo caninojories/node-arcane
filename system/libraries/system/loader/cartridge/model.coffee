@@ -14,6 +14,8 @@ import tools.iced
 
 import util
 
+import model.ModelComparators
+
 class model extends Middleware
 
 	@Query: require path.resolve "#{__dirname}/../../../../core/sql-query"
@@ -111,7 +113,7 @@ class model extends Middleware
 			else 
 				orm.conn = null
 
-			orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do name.toLowerCase
+			orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase
 			orm.$root = root
 			orm.con = model.connectionChange
 
@@ -135,7 +137,7 @@ class model extends Middleware
 					if orm.conn.$
 						wait.for orm.conn.$
 
-					init = wait.forMethod orm.conn, 'table', name, orm.attributes, model.global_model[root]
+					init = wait.forMethod orm.conn, 'table', name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase(), orm.attributes, model.global_model[root]
 					if init and init is 'onCreate' && orm.hasOwnProperty init
 						do orm[init]
 			catch err
@@ -146,46 +148,6 @@ class model extends Middleware
 		_cl.__proto__ = orm
 
 		model.global_model[root][name] = model.models[root][name].cl = _cl
-
-		# if cl.attributes?
-		# 	if not cl.connection?
-		# 		throw new Error "'connection' are not declared in '#{name}'."
-
-		# if cl.connection?
-		# 	if $connector[root][cl.connection]?
-		# 		cl.conn = $connector[root][cl.connection]
-		# 	else 
-		# 		cl.conn = null
-
-		# 	cl.table = (if cl.conn? then cl.conn.prefix else 'tbl_') + do name.toLowerCase
-		# 	cl.$root = root
-		# 	cl.con = model.connectionChange
-
-		# 	for v of model.orm then cl[v] = model.orm[v]
-
-		# 	if $connector[cl.connection]?
-		# 		cl.query = cl.conn.query
-		# 	else
-		# 		cl.query = ->
-		# 			throw 'Query on empty connection.'
-		# 			return
-
-		# else if not $connector[cl.connection]?
-		# 	throw new Error "No connection declared such as #{cl.connection}"
-
-		# if primary then wait.launchFiber ->
-		# 	try
-		# 		cl.con root, $connector[root], cl.connection
-
-		# 		if cl.migrate and cl.migrate isnt 'safe'
-		# 			if cl.conn.$
-		# 				wait.for cl.conn.$
-
-		# 			init = wait.forMethod cl.conn, 'table', name, cl.attributes, model.global_model[root]
-		# 			if init and init is 'onCreate' && cl.hasOwnProperty init
-		# 				do cl[init]
-		# 	catch err
-		# 		console.log err.stack or err if err?
 
 	__onDeleted: (root, name, filename, $connector) ->
 		delete model.models[root][name]
@@ -203,13 +165,501 @@ class model extends Middleware
 		set: (target, name, value) ->
 	}
 
+	@init_connection: (self, cb) ->
+		try if self.conn
+			if self.conn.$
+				self.conn.$ ->
+					self.is_init = true
+					if self.migrate and self.migrate isnt 'safe'
+						await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
+						throw d_err if d_err
+
+						if init and init is 'onCreate' && self.hasOwnProperty init
+							do table[init]
+					cb null, true
+			else if not self.is_init?
+				self.is_init = true
+				if self.migrate and self.migrate isnt 'safe'
+					await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
+					throw d_err if d_err
+
+					if init and init is 'onCreate' && self.hasOwnProperty init
+						do table[init]
+
+				cb null, true
+			else
+				cb null, true
+		else
+			cb 'ERROR: Can\'t query without connection'
+		catch err
+			cb err
+
+	@qparam_conditions: {
+		contains: (value) -> 
+			ModelComparators.like("%#{value}%")
+
+		startswith: (value) -> 
+			ModelComparators.like("#{value}%")
+
+		endswith: (value) -> 
+			ModelComparators.like("%#{value}")
+
+		range: (value) ->
+			if value.constructor.name is 'Array'
+				ModelComparators.between.apply ModelComparators, value
+			else
+				throw new Error 'Range is not a valid Array type.'
+
+		not_range: (value) ->
+			if value.constructor.name is 'Array'
+				ModelComparators.not_between.apply ModelComparators, value
+			else
+				throw new Error 'Range is not a valid Array type.'
+
+		isnull: (value) ->
+			if value
+				ModelComparators.eq(null)
+			else
+				ModelComparators.ne(null)
+
+		in: (value) ->
+			if value.constructor.name is 'Array'
+				return value
+			else
+				throw new Error 'Range is not a valid Array type.'
+
+		eq: ModelComparators.eq
+		ne: ModelComparators.ne
+		gt: ModelComparators.gt
+		gte: ModelComparators.gte
+		lt: ModelComparators.lt
+		lte: ModelComparators.lte
+		not_in: ModelComparators.not_in
+	}
+
+	@qparam_add: (name, value, condition) ->
+		condition[name] = value
+
+	@qparam_builder: (model_data, builder, params, condition, model_list, exclude) ->
+
+		tmp_condition = {}
+		table_join = []
+
+		for i in condition
+			if i[0] is 'from'
+				table_join.push i[1][0]
+
+		for i, v of params
+			condition_list = i.split '__'
+			do_third_operation = false
+
+			if condition_list.length is 1
+				if model_data.attributes[condition_list[0]]? or condition_list[0] is 'id'
+
+					tmp_condition[model_data.table] = [] unless tmp_condition[model_data.table]
+					tmp_condition[model_data.table].push [condition_list[0], v]
+
+				else
+					console.log "Unknwon field '#{condition_list[0]}'"
+
+			else if condition_list.length is 2
+				add_condition = []
+				if model_data.attributes[condition_list[0]]? or condition_list[0] is 'id'
+					add_condition = [condition_list[0], v]
+				else
+					console.log 'check for relations'
+
+				if add_condition.length isnt 0 and model.qparam_conditions[condition_list[1]]?
+
+					tmp_condition[model_data.table] = [] unless tmp_condition[model_data.table]
+					tmp_condition[model_data.table].push [condition_list[0], model.qparam_conditions[condition_list[1]](add_condition[1])]
+
+				else
+					do_third_operation = true
+
+			if condition_list.length > 2 or do_third_operation
+					last_model = model_data
+
+					if table_join.length is 0
+						condition.push ['select', ['id']]
+						condition.push ['as', ['id']]
+
+						for z, a of last_model.attributes
+							condition.push ['select', [z]]
+							condition.push ['as', [z]]
+
+					for y, x of condition_list
+						if typeof model_data.attributes[x] is 'object' and model_data.attributes[x].model? and model_list[model_data.attributes[x].model]?
+							last_model = model_list[model_data.attributes[x].model]
+
+							if table_join.indexOf(last_model.table) is -1
+								condition.push ['from', [last_model.table, 'id', x]]
+								table_join.push last_model.table
+
+						else if typeof last_model.attributes[x] isnt 'undefined'
+							tmp_condition[last_model.table] = [] unless tmp_condition[last_model.table]
+
+							found_condition = false
+
+							if ((condition_list.length - 1) - y) is 1 and model.qparam_conditions[condition_list[-1..]]?
+								found_condition = true
+								tmp_condition[last_model.table].push [x, model.qparam_conditions[condition_list[-1..]](v)]
+							else
+								tmp_condition[last_model.table].push [x, v]
+
+							break if found_condition
+
+							if ((condition_list.length - 1) - y) is 1 and not found_condition
+								console.log "ERROR: condition '#{condition_list[-1..]}' not found."
+								break
+						else
+							console.log "ERROR: Unknown Column in MODEL '#{x}'."
+
+
+		if Object.keys(tmp_condition).length is 1
+			for i, v of tmp_condition
+				tmp = {}
+				for x in v
+					
+					if tmp[x[0]]?
+						tmp = {not: [tmp]} if exclude
+						condition.push ['where', [tmp]]
+						tmp = {}
+
+					tmp[x[0]] = x[1]
+
+				tmp = {not: [tmp]} if exclude
+				condition.push ['where', [tmp]]
+
+		else if Object.keys(tmp_condition).length isnt 0
+			args = []
+			for i, v of tmp_condition
+				tmp = {}
+
+				for x in v
+					if tmp[x[0]]?
+						args.push i
+						tmp = {not: [tmp]} if exclude
+						args.push tmp
+						tmp = {}
+
+					tmp[x[0]] = x[1]
+
+				if Object.keys(tmp).length isnt 0
+					args.push i
+					tmp = {not: [tmp]} if exclude
+					args.push tmp
+				
+			condition.push ['where', args]
+
+
+	@build_query_model: (model_data, builder, object, resource, model_list) ->
+		type = if object? then 'create' else 'update'
+
+		object_data = {
+			is_one: false 
+			data_build: object ? {}
+			data_resource: resource ? {}
+			data_rows: []
+			data_condition: {}
+			query: null
+		}
+
+		update_rows = (return_query) ->
+			if object_data.query? and object_data.data_rows.length is 0
+				query = builder.select().from(model_data.table)
+				for i in object_data.query
+					query = query[i[0]].apply query, i[1]
+
+				if return_query
+					return query.build()
+
+				try
+					result = model_data.conn.query.sync model_data.conn, query.build()
+				catch err
+					console.log err.stack ? err
+
+				if object_data.is_one and result.length isnt 1
+					throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
+
+				for i in result
+					object_data.data_rows.push model.build_query_model model_data, builder, i, {id: i.id}, model_list
+
+				if object_data.data_rows.length isnt 0
+					object_data.data_build = result[0]
+
+		check_field = (value) ->
+			if Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
+				return value.id
+			else
+				return value
+
+		build_query_array = ->
+			if arguments.length is 1
+				model.qparam_builder model_data, builder, arguments[0], object_data.query, model_list, @.exclude
+			else if arguments.length > 1
+				__or = []
+
+				for i in arguments
+					old_length = object_data.query.length
+					model.qparam_builder model_data, builder, i, object_data.query, model_list, @.exclude
+
+					__query = object_data.query.slice(0)
+					__removed_query = 0
+
+					for j in [old_length...object_data.query.length] when __query[j][0] is 'where'
+						if typeof __query[j][1][0] is 'object'
+							__or.push __query[j][1][0]
+						else
+							console.log __query[j]
+
+						object_data.query.splice j - __removed_query, 1
+						__removed_query++
+
+				object_data.query.push ['where', [or: __or]]
+				
+				console.log object_data.query
+
+			object_data.data_rows = []
+
+		build_query = harmonyProxy (->), {
+			get: (target, name) ->
+
+				# console.info name
+
+				switch name
+					when 'get_or_create'
+						return (build)->
+							__build = util._extend {}, build
+							__defaults = util._extend {}, build.defaults ? {}
+							delete __build.defaults if __build.defaults
+							try 
+								build_query.get(__build)
+								do update_rows
+							catch err
+								for i, v of __build
+									__defaults[i] = v
+								build_query.create(__defaults)
+
+							return build_query
+
+					when 'update_or_create'
+						return (build)->
+
+							return build_query
+
+					when 'latest'
+						return (field_date)->
+
+							#return latest data 
+					
+					when 'earliest'
+						return (field_date)->
+
+							#return latest data 
+
+					when 'create'
+						return (build) ->
+							d = {}
+							for x, y of build
+								d[x] = check_field y 
+							r = model.build_query_model model_data, builder, d, null, model_list
+							do r.save
+							return r
+
+					when 'add'
+						return ->
+							console.log arguments
+
+					when 'save'
+						delete object_data.data_build.id if object_data.data_build.id?
+						return ->
+							if type is 'create'
+								try
+									object_data.data_resource = {}
+									result = model_data.conn.query.sync model_data.conn, builder.insert().into(model_data.table).set(object_data.data_build).build()
+									object_data.data_resource.id = object_data.data_build.id = result[0].last_insert_id
+								catch err
+									console.log err.stack ? err
+								type = 'update'
+							else if type is 'update' and object_data.data_resource?.id?
+								model_data.conn.query.sync model_data.conn, builder.update().into(model_data.table).set(object_data.data_build).where(object_data.data_resource).build()
+								object_data.data_build.id = object_data.data_resource.id
+							else if type is 'update' and object_data.query?
+								build_query.update object_data.data_build
+
+					when 'filter'
+						object_data.query = [] unless object_data.query?
+						return ->
+							build_query_array.apply {exclude: false}, arguments
+							return build_query
+
+					when 'exclude'
+						object_data.query = [] unless object_data.query?
+						return ->
+							build_query_array.apply {exclude: true}, arguments
+							return build_query
+
+					when 'get'
+						object_data.is_one = true
+						return ->
+							build_query.filter.apply build_query, arguments
+							return build_query
+
+					when 'all'
+						object_data.query = []
+						return ->
+							return build_query
+
+					when 'delete'
+						object_data.query = [] unless object_data.query?
+						return ->
+							query = builder.remove().from(model_data.table)
+							for i in object_data.query
+								query = query[i[0]].apply query, i[1]
+							try
+								model_data.conn.query.sync model_data.conn, query.build()
+							catch err
+								console.log err.stack ? err
+
+					when 'update'
+						object_data.query = [] unless object_data.query?
+						return (new_data) ->
+							d = {}
+							for x, y of new_data
+								d[x] = check_field y 
+							query = builder.update().into(model_data.table).set(d)
+							for i in object_data.query
+								query = query[i[0]].apply query, i[1]
+							try
+								model_data.conn.query.sync model_data.conn, query.build()
+							catch err
+								console.log err.stack ? err
+
+					when 'order_by'
+						object_data.query = [] unless object_data.query?
+						return (field) ->
+							if field[0] is '-'
+								object_data.query.push ['order', [field.replace(/^\-/g, ''), 'Z']]
+							else
+								object_data.query.push ['order', [field, 'A']]
+
+							return build_query
+
+					when 'count'
+						object_data.query = [] unless object_data.query?
+						return ->
+							object_data.query.push ['count', arguments]
+							return build_query
+
+					when 'length'
+						do update_rows
+						return object_data.data_rows.length
+
+					when 'query'
+						return update_rows true
+
+					when 'toString', 'valueOf'
+						return ->
+							if typeof model_data.__unicode__ is 'function'
+								return String model_data.__unicode__.apply build_query, []
+							else
+								do update_rows
+								return JSON.stringify object_data.data_rows
+							# return 'EMPTY STRING'
+
+					when 'slice'
+						return ->
+							object_data.query.push ['offset', [arguments[0]]]
+							if arguments[1]?
+								object_data.query.push ['limit', [arguments[1] - 1]]
+							return build_query
+
+					when 'exists'
+						return ->
+							return build_query.length isnt 0
+
+					else
+						if not isNaN(parseFloat(name)) and isFinite(name)
+							return object_data.data_rows[name]
+						else if regex = /^___queryset_get_([0-9]+?)$/g.exec(name)
+							return object_data.data_rows[regex[1]]
+						else if name isnt 'constructor'
+							do update_rows
+
+							if typeof model_data.attributes[name] is 'object' and model_data.attributes[name].model? and model_list[model_data.attributes[name].model]?
+								r = model.build_query_model model_list[model_data.attributes[name].model], builder, null, null, model_list
+								return r.filter(id: object_data.data_build[name])
+
+							# condition for manytomany
+
+							if object_data.data_build[name]?
+								return object_data.data_build[name]
+							else
+								# console.log name
+								return null
+						else
+							console.info name
+							return null
+
+				
+			set: (target, name, value) ->
+				if model_data.attributes[name]?
+					object_data.data_build[name] = check_field value
+
+			apply: (target, thisArg, argumentsList) ->
+
+			getOwnPropertyDescriptor: (target, prop) ->
+				if prop is 'information'
+					return { configurable: true, enumerable: true, value: '_ARC__MODEL_' }
+				else
+					return {configurable: true, enumerable: true}
+
+			enumerate: (target) ->
+				do update_rows
+				return ("___queryset_get_#{x}" for x in [0...object_data.data_rows.length])
+		}
+
+		return build_query
+
 	@ModelExec: ($root) ->
 		return harmonyProxy {}, {
 			get: (target, name) ->
 				if model.global_model[$root][name]?
-					return model.global_model[$root][name]
+
+					# if name isnt'objects'
+					# 	return model.global_model[$root][name]
+
+					target_model = model.global_model[$root][name]
+					
+					try 
+						model.init_connection.sync null, target_model
+					catch err
+						console.log err.stach ? err
+
+					return harmonyProxy (->), {
+						get: (target, name) ->
+							# console.log name
+							switch do name.toLowerCase
+								when 'objects'
+									query_b = new model.Query.Query dialect: target_model.conn.dialect
+									return model.build_query_model target_model, query_b, null, null, model.global_model[$root]
+								# else
+								# 	console.log name
+								# 	return target_model[name]
+
+						set: (target, name, value) ->
+							console.log name, value
+
+						apply: (target, thisArg, argumentsList) ->
+							query_b = new model.Query.Query dialect: target_model.conn.dialect
+							# tmp = query_b.insert().into(target_model.table).set argumentsList[0]
+							return model.build_query_model target_model, query_b, argumentsList[0], null, model.global_model[$root]
+					}
+
 				else
-					return model.virtual_model
+					throw new Error "Undefined model '#{name}'."
+					# return model.virtual_model
 
 			set: (target, name, value) ->
 				if not model.model_connection_setup.hasOwnProperty $root
@@ -230,7 +680,7 @@ class model extends Middleware
 						if table.conn.$
 							wait.for table.conn.$
 
-						init = wait.forMethod table.conn, 'table', name, table.attributes, model.global_model[$root]
+						init = wait.forMethod table.conn, 'table', name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, ''), table.attributes, model.global_model[$root]
 						if init and init is 'onCreate' && table.hasOwnProperty init
 							do table[init]
 		}
@@ -261,7 +711,7 @@ class model extends Middleware
 				else 
 					orm.conn = null
 
-				orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do class_name.toLowerCase
+				orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do class_name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase
 				orm.$root = vhost
 				orm.con = model.connectionChange
 
@@ -283,39 +733,6 @@ class model extends Middleware
 
 			model.global_model[vhost][class_name] = model.models[vhost][class_name].cl = _cl
 
-			# cl[d] = v for d, v of new cl
-		# else
-		# 	cl = model.models[vhost][class_name].cl = new __require target_file
-
-		# model.global_model[vhost][class_name] = cl
-
-		# if cl.attributes?
-		# 	if not cl.connection?
-		# 		throw new Error "'connection' are not declared in '#{class_name}'."
-
-		# if cl.connection?
-		# 	if $connector[vhost][cl.connection]?
-		# 		cl.conn = $connector[vhost][cl.connection]
-		# 	else 
-		# 		cl.conn = null
-
-		# 	cl.table = (if cl.conn? then cl.conn.prefix else 'tbl_') + do class_name.toLowerCase
-		# 	cl.$root = vhost
-		# 	cl.con = model.connectionChange
-
-		# 	# for v of model.orm then cl[v] = model.orm[v]
-
-		# 	if $connector[cl.connection]?
-		# 		cl.query = cl.conn.query
-		# 	else
-		# 		cl.query = ->
-		# 			throw 'Query on empty connection.'
-		# 			return
-
-		# else if not $connector[cl.connection]?
-		# 	throw new Error "No connection declared such as #{cl.connection}"
-
-
 	@connectionChange: ($root, $connector, name) ->
 		if $connector[$root]?.hasOwnProperty(name)
 			@conn = $connector[$root][name]
@@ -326,64 +743,6 @@ class model extends Middleware
 		else
 			throw new Error "No connection declared such as #{name}"
 		return
-
-	# @parseWhere: (list, obj, raw, column, status) ->
-	# 	i = undefined
-	# 	tmp_list = undefined
-	# 	key = undefined
-	# 	_column = undefined
-	# 	_status = undefined
-	# 	_and = undefined
-	# 	x = undefined
-	# 	for i of obj
-	# 		if obj.hasOwnProperty(i)
-	# 			if i.toLowerCase() == 'or' and Object::toString.call(obj[i]) == '[object Array]'
-	# 				model.parseWhere list, { '=': obj[i] }, raw, column or i, 'OR'
-	# 			else if i.toLowerCase() == 'or' and Object::toString.call(obj[i]) == '[object Object]'
-	# 				tmp_list = []
-	# 				model.parseWhere tmp_list, obj[i], raw, column or i, 'OR'
-	# 				list.push '(' + tmp_list.join(' OR ') + ')'
-	# 			else if Object::toString.call(obj[i]) == '[object Object]'
-	# 				model.parseWhere list, obj[i], raw, column or i
-	# 			else if typeof obj[i] == 'string' or typeof obj[i] == 'number' or Object::toString.call(obj[i]) == '[object Array]'
-	# 				key = i.toLowerCase()
-	# 				_column = column
-	# 				_status = status or 'AND'
-	# 				if _column
-	# 					if key == '!'
-	# 						key = 'NOT LIKE'
-	# 					else if key == 'like'
-	# 						key = 'LIKE'
-	# 					else if [
-	# 							'>'
-	# 							'>='
-	# 							'<'
-	# 							'<='
-	# 							'<>'
-	# 						].indexOf(key) == -1
-	# 						key = '='
-	# 				else
-	# 					_column = i
-	# 					key = '='
-	# 				if Object::toString.call(obj[i]) == '[object Array]'
-	# 					_and = []
-	# 					for x of obj[i]
-	# 						if obj[i].hasOwnProperty(x)
-	# 							_and.push _column + ' ' + key + ' ?'
-	# 							raw.push obj[i][x]
-	# 					list.push '(' + _and.join(' ' + String(_status).toUpperCase() + ' ') + ')'
-	# 				else
-	# 					list.push _column + ' ' + key + ' ?'
-	# 					raw.push obj[i]
-	# 	return
-
-	# @field_unzip: (arr) ->
-	# 	ret = {}
-	# 	x = undefined
-	# 	for x of arr[0]
-	# 		if arr[0].hasOwnProperty(x)
-	# 			ret[arr[0][x]] = arr[1][x]
-	# 	ret
 
 	@validator:
 		required: (value) ->
@@ -816,35 +1175,19 @@ class model extends Middleware
 						# try
 						for x of result
 
-							# console.log 'teeererer 22222222'
-
 							if result.hasOwnProperty(x)
-
-								# console.log 'teeererer 33333333333'
 
 								for y of result[x]
 
-									# console.log 'teeererer 4444444444'
-
 									if result[x].hasOwnProperty(y)
-
-										# console.log 'teeererer 555555555'
 
 										_find = {}
 
-										# console.log 'teeererer 6666666666666'
-
 										if typeof self.attributes[y] == 'object' and self.attributes[y].collection and self.attributes[y].via
-
-											# console.log 'teeererer 7777777777777'
 
 											_find = {}
 											_find[self.attributes[y].via] = result[x][y]
 
-											# console.log 'teeererer 8888888888888888888888'
-
-											# result[x][y] = do model.global_model[self.$root][self.attributes[y].collection].find(_find).commit
-											
 											# console.log 'Request query first'
 											await model.global_model[self.$root][self.attributes[y].collection].find(_find).exec defer err_d, result[x][y]
 											throw err_d if err_d
@@ -867,97 +1210,27 @@ class model extends Middleware
 												if not model.global_model[self.$root][self.attributes[y].model]?
 													throw new Error "MODEL file of 'tbl_#{self.attributes[y].model}' is not found."
 
-												# result[x][y] = do model.global_model[self.$root][self.attributes[y].model].findOne().where(_find).commit
-
 												# console.log 'Request query second'
 												await model.global_model[self.$root][self.attributes[y].model].findOne().where(_find).exec defer err_d, result[x][y]
 												throw err_d if err_d
 
-										# console.log 'teeererer 10000000000000000000'
-
-						# console.log 'teeererer 111111 1111111111 11111111111'
-
 						if is_one_result
-							# console.log 'RESULT 11111111111111111'
 							result = result[0] or null
 
 
-						# catch e
-						# 	console.log 'ERRORR 11111111111111111'
-						# 	console.log e.stack ? e
-
-						# console.log 'teeererer 2222 22 22 22 2222 22 222 22'
-
 						if types == 2 #and pending_fields.length != 0
 							# update
-							
-							# console.log 'teeererer 333 3 33 3333 33 33 3333333 333'
 
 							for q of self.attributes
 
-								# console.log 'teeererer 44 444444 44 4 4 4 44 44 4 4 444'
-
 								if self.attributes.hasOwnProperty(q)
-
-									# console.log 'teeererer 555 5 55 5 5555 5 55 5 5 5 555 5 5 5 5'
 
 									# __find = {}
 									if typeof self.attributes[q] == 'object' and (self.attributes[q].collection and self.attributes[q].via or self.attributes[q].model)
-										# ret_cval = wait.forMethod self.find(global_where), 'exec'
-										
-										# console.log 'teeererer 666 66 6 6 6 666 66 6 6 6 6 6 6 66 6 6 6 6 6 6 '
 
 										await self.find(global_where).exec defer err_d, ret_cval
 										throw err_d if err_d
 
-
-
-
-										# for f of ret_cval
-										# 	if ret_cval.hasOwnProperty(f)
-										# 		for r of ret_cval[f][q]
-										# 			if ret_cval[f][q].hasOwnProperty(r)
-										# 				if !__find.or
-										# 					__find.or = []
-										# 				__find.or.push id: ret_cval[f][q][r].id
-
-										###if (Object.keys(__find).length !== 0) {
-												global_model[self.attributes[q].model || self.attributes[q].collection].update(field_unzip([pending_fields, pending_value]), __find).exec.sync(global_model[self.attributes[q].model || self.attributes[q].collection]);
-										}
-										###
-
-						# else if types == 3 and pending_fields.length != 0
-						# 	#insert
-						# 	t_fields = {}
-						# 	try
-						# 		for w of self.attributes
-						# 			if typeof self.attributes[w] == 'object' and (self.attributes[w].collection and self.attributes[w].via or self.attributes[w].model)
-						# 				vals = model.field_unzip([
-						# 					pending_fields
-						# 					pending_value
-						# 				])
-						# 				insert_result = model.global_model[self.$root][self.attributes[w].model or self.attributes[w].collection].create(vals).exec.sync(model.global_model[self.$root][self.attributes[w].model or self.attributes[w].collection])
-						# 				if insert_result.last_insert_id
-						# 					if self.attributes[w].model
-						# 						t_fields[w] = insert_result.last_insert_id
-						# 					else
-						# 						if self.attributes[w].via == 'id'
-						# 							t_fields[w] = insert_result.last_insert_id
-						# 						else
-						# 							t_fields[w] = vals[self.attributes[w].via]
-						# 		if Object.keys(t_fields).length != 0
-						# 			self.update(t_fields, id: last_insert_id).exec.sync self
-						# 	catch er
-						# 		console.log er.stack or er
-						# if types == 3
-						# 	result = last_insert_id: last_insert_id
-
-						# try
-						# 	cb null, result
-						# catch err_cb
-						# 	console.log err_cb.stack ? err
-
-						# console.log 'teeererer 77 77 7 7 77 777 77 7 7 77 7 7 77 777'
 
 						cb null, result
 					catch err
@@ -976,7 +1249,7 @@ class model extends Middleware
 						self.is_init = true
 						if self.migrate and self.migrate isnt 'safe'
 							# init = wait.forMethod self.conn, 'table', self.table.replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root]
-							await self.conn.table self.table.replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
+							await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
 							throw d_err if d_err
 
 							if init and init is 'onCreate' && self.hasOwnProperty init
@@ -1002,252 +1275,6 @@ class model extends Middleware
 				cb err
 
 			return
-
-		# exec_old: (cb) ->
-		# 	query = ''
-		# 	raw = []
-		# 	tmp = []
-		# 	pending_fields = []
-		# 	pending_value = []
-		# 	types = null
-		# 	i = undefined
-		# 	j = undefined
-		# 	k = undefined
-		# 	fields = undefined
-		# 	append = undefined
-		# 	list = undefined
-		# 	self = this
-		# 	is_one_result = undefined
-		# 	last_insert_id = undefined
-		# 	global_where = undefined
-
-		# 	if @_query.select
-		# 		query += 'SELECT '
-		# 		if @_query.select.length == 0
-		# 			query += '* '
-		# 		else
-		# 			fields = []
-		# 			for i of @_query.select
-		# 				if @_query.select.hasOwnProperty(i)
-		# 					if @_query.select[i] != 'id' and @_query.select[i] != 'date_added' and @_query.select[i] != 'date_modified' and !@attributes[@_query.select[i]]
-		# 						pending_fields.push @_query.select[i]
-		# 						continue
-		# 					fields.push @_query.select[i]
-		# 			query += fields.join(', ') + ' '
-		# 		query += 'FROM ' + @table + ' '
-		# 		types = 1
-		# 		@_query.select = []
-		# 	else if @_query.update
-		# 		tmp = []
-		# 		query += 'UPDATE ' + @table + ' SET '
-		# 		for j of @_query.update
-		# 			if @_query.update.hasOwnProperty(j)
-		# 				if j != 'id' and j != 'date_added' and j != 'date_modified' and !@attributes[j]
-		# 					pending_fields.push j
-		# 					pending_value.push @_query.update[j]
-		# 					continue
-		# 				tmp.push j + ' = ?'
-		# 				raw.push @_query.update[j]
-		# 		query += tmp.join(', ') + ' '
-		# 		types = 2
-		# 		@_query.update = null
-		# 	else if @_query.insert
-		# 		append = []
-		# 		tmp = []
-		# 		query += 'INSERT INTO ' + @table + ' '
-		# 		for k of @_query.insert
-		# 			if @_query.insert.hasOwnProperty(k)
-		# 				if k != 'id' and k != 'date_added' and k != 'date_modified' and !@attributes[k]
-		# 					pending_fields.push k
-		# 					pending_value.push @_query.insert[k]
-		# 					continue
-		# 				tmp.push k
-		# 				raw.push @_query.insert[k]
-		# 				append.push '?'
-		# 		query += '(' + tmp.join(',') + ') VALUES (' + append.join(',') + ') '
-		# 		types = 3
-		# 		@_query.insert = null
-		# 	else if @_query.delete
-		# 		query += 'DELETE FROM ' + @table + ' '
-		# 		types = 4
-		# 		@_query.delete = null
-		# 	if query.length != 0 and !@_query.insert
-		# 		if @_query.where and Object.keys(@_query.where).length != 0
-		# 			query += 'WHERE '
-		# 			list = []
-		# 			model.parseWhere list, @_query.where, raw
-		# 			query += list.filter(Boolean).join(' AND ')
-		# 			global_where = @_query.where
-		# 			@_query.where = null
-		# 		if @_query.group
-		# 			if Array.isArray @_query.group
-		# 				if @_query.group.length >= 1
-		# 					query += ' GROUP BY ' + @_query.group.join(', ')
-		# 			else
-		# 				query += ' GROUP BY ' + @_query.group
-		# 		if @_query.order_by
-		# 			if Array.isArray @_query.order_by
-		# 				if @_query.order_by.length >= 1
-		# 					query += ' ORDER BY ' + @_query.order_by.join(', ')
-		# 			else
-		# 				query += ' ORDER BY ' + @_query.order_by
-		# 		if @_query.limit
-		# 			query += ' LIMIT ' + @_query.limit
-		# 	is_one_result = @_query.findOne or false
-
-		# 	count = 0
-
-		# 	do_query = (err) ->
-		# 		# count++
-		# 		# console.log 'called >>>>>>>>>>>>.', count, query
-		# 		# console.log (new Error).stack
-
-		# 		if err
-		# 			console.error err.stack ? err
-		# 			cb err, null
-		# 			return
-
-		# 		self.conn.query query, raw, (err, result) ->
-		# 			throw err if err
-		# 				# cb err, false
-		# 				# return
-
-		# 			model.synchro ->
-		# 				x = undefined
-		# 				y = undefined
-		# 				_find = undefined
-		# 				q = undefined
-		# 				__find = undefined
-		# 				ret_cval = undefined
-		# 				f = undefined
-		# 				r = undefined
-		# 				t_fields = undefined
-		# 				w = undefined
-		# 				vals = undefined
-		# 				insert_result = undefined
-		# 				last_insert_id = null
-
-		# 				###,
-		# 				raw_lii = null;
-		# 				###
-
-		# 				try
-		# 					if types == 3
-		# 						if result[0]?.id
-		# 							last_insert_id = result[0].id
-		# 						else
-		# 							last_insert_id = self.conn.last_insert_id.sync(self.conn)[0].last_insert_id
-		# 				catch e
-		# 					console.log e.stack ? e
-
-		# 				try
-		# 					for x of result
-		# 						if result.hasOwnProperty(x)
-		# 							for y of result[x]
-		# 								if result[x].hasOwnProperty(y)
-		# 									_find = {}
-		# 									if typeof self.attributes[y] == 'object' and self.attributes[y].collection and self.attributes[y].via
-		# 										_find = {}
-		# 										_find[self.attributes[y].via] = result[x][y]
-		# 										result[x][y] = do model.global_model[self.$root][self.attributes[y].collection].find(_find).commit
-		# 									else if typeof self.attributes[y] == 'object' and self.attributes[y].model
-		# 										if result[x][y]
-		# 											_find = {}
-		# 											_find.id = result[x][y]
-
-		# 											if not model.global_model[self.$root][self.attributes[y].model]?
-		# 												throw new Error "MODEL file of 'tbl_#{self.attributes[y].model}' is not found."
-
-		# 											result[x][y] = do model.global_model[self.$root][self.attributes[y].model].findOne().where(_find).commit
-		# 					if is_one_result
-		# 						result = result[0] or null
-		# 				catch e
-		# 					console.log e.stack ? e
-		# 				if types == 2 and pending_fields.length != 0
-		# 					# update
-		# 					for q of self.attributes
-		# 						if self.attributes.hasOwnProperty(q)
-		# 							__find = {}
-		# 							if typeof self.attributes[q] == 'object' and (self.attributes[q].collection and self.attributes[q].via or self.attributes[q].model)
-		# 								ret_cval = self.find(global_where).exec.sync(self)
-		# 								for f of ret_cval
-		# 									if ret_cval.hasOwnProperty(f)
-		# 										for r of ret_cval[f][q]
-		# 											if ret_cval[f][q].hasOwnProperty(r)
-		# 												if !__find.or
-		# 													__find.or = []
-		# 												__find.or.push id: ret_cval[f][q][r].id
-
-		# 								###if (Object.keys(__find).length !== 0) {
-		# 										global_model[self.attributes[q].model || self.attributes[q].collection].update(field_unzip([pending_fields, pending_value]), __find).exec.sync(global_model[self.attributes[q].model || self.attributes[q].collection]);
-		# 								}
-		# 								###
-
-		# 				else if types == 3 and pending_fields.length != 0
-		# 					#insert
-		# 					t_fields = {}
-		# 					try
-		# 						for w of self.attributes
-		# 							if typeof self.attributes[w] == 'object' and (self.attributes[w].collection and self.attributes[w].via or self.attributes[w].model)
-		# 								vals = model.field_unzip([
-		# 									pending_fields
-		# 									pending_value
-		# 								])
-		# 								insert_result = model.global_model[self.$root][self.attributes[w].model or self.attributes[w].collection].create(vals).exec.sync(model.global_model[self.$root][self.attributes[w].model or self.attributes[w].collection])
-		# 								if insert_result.last_insert_id
-		# 									if self.attributes[w].model
-		# 										t_fields[w] = insert_result.last_insert_id
-		# 									else
-		# 										if self.attributes[w].via == 'id'
-		# 											t_fields[w] = insert_result.last_insert_id
-		# 										else
-		# 											t_fields[w] = vals[self.attributes[w].via]
-		# 						if Object.keys(t_fields).length != 0
-		# 							self.update(t_fields, id: last_insert_id).exec.sync self
-		# 					catch er
-		# 						console.log er.stack or er
-		# 				if types == 3
-		# 					result = last_insert_id: last_insert_id
-
-		# 				# try
-		# 				# 	cb null, result
-		# 				# catch err_cb
-		# 				# 	console.log err_cb.stack ? err
-		# 				return result
-
-		# 			, cb
-
-		# 			return
-		# 		return
-
-		# 	try if @conn
-		# 		if @conn.$
-		# 			self = @
-		# 			@conn.$ ->
-		# 				self.is_init = true
-		# 				if self.migrate and self.migrate isnt 'safe'
-		# 					init = self.conn.table.sync self.conn, self.table.replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root]
-		# 					if init and init is 'onCreate' && self.hasOwnProperty init
-		# 						do table[init]
-
-		# 				do do_query
-		# 		else if not @is_init?
-		# 			@is_init = true
-		# 			if @migrate and @migrate isnt 'safe'
-		# 				init = @conn.table.sync @conn, @table.replace(new RegExp("^#{@conn.prefix}"), ''), @attributes, model.global_model[self.$root]
-		# 				if init and init is 'onCreate' && @hasOwnProperty init
-		# 					do table[init]
-
-		# 			do do_query
-		# 		else
-		# 			do do_query
-		# 	else
-		# 		cb 'ERROR: Can\'t query without connection'
-		# 		console.error 'ERROR: Can\'t query without connection'
-		# 	catch err
-		# 		cb err
-
-		# 	return
 
 	@escapeRegExp: (str) ->
 		str.replace /[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&'

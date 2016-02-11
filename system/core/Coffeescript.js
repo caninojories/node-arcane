@@ -126,10 +126,15 @@ var code_replacer = function(code, options) {
 
         } else if(regex[3]) {
           var vname = regex[3].trim().split('.');
-          if(vname[vname.length - 1] === '*') {
-            ret =  vname[vname.length - 2] + ' = { ' + scan_libraries(find_project_dir(options.filename) + '/libraries', vname, true) + '}';
+
+          if(vname[0] === 'model' && vname[1] !== 'ModelComparators') {
+            ret = vname[vname.length - 1] + ' = __model.' + vname[vname.length - 1];
           } else {
-            ret = vname[vname.length - 1].replace(/\-([a-zA-Z])/g, function(match) {  return match.replace(/^\-/g, '').toUpperCase(); }) + ' = __require "' + library_check(options.filename, regex[3].trim()) + '", { error: "Unable  to find library \'' + regex[3].trim() + '\'." }';
+            if(vname[vname.length - 1] === '*') {
+              ret =  vname[vname.length - 2] + ' = { ' + scan_libraries(find_project_dir(options.filename) + '/libraries', vname, true) + '}';
+            } else {
+              ret = vname[vname.length - 1].replace(/\-([a-zA-Z])/g, function(match) {  return match.replace(/^\-/g, '').toUpperCase(); }) + ' = __require "' + library_check(options.filename, regex[3].trim()) + '", { error: "Unable  to find library \'' + regex[3].trim() + '\'." }';
+            }
           }
         }
 

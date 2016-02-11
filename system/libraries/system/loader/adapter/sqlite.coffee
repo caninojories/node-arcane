@@ -63,9 +63,21 @@ class SQLite
 				cntr--
 
 			conn = do pool.get
+
+			if /^INSERT\sINTO/g.test query
+				conn.exec(query, data)
+				query = 'SELECT last_insert_rowid() AS `last_insert_id`'
+				data= []
+
+			cb_called = false
+			_cb = (err, result) ->
+				if !cb_called
+					cb_called = true
+					cb err, result
+
 			conn.exec(query, data).all((rows) ->
 				do conn.close
-				cb null, rows
+				_cb null, rows
 				return
 			).then (err) ->
 				if err
@@ -75,11 +87,15 @@ class SQLite
 					else
 						conn.resume true
 				
-					console.log err.code, err.stack
+					if not /already\sexists/g.test err.stack
+						console.log err.code, err.stack
+				else
+					do conn.close
 
-					cb null, []
+				_cb null, []
 				return
 			return
+
 		resolve null, true
 		return
 
@@ -89,6 +105,7 @@ class SQLite
 		return
 
 	table: (table_name, data, model_list, callback) ->
+		table_name = do table_name.toLowerCase
 		self = this
 		selfArgs = arguments
 		if !callback
@@ -214,6 +231,7 @@ class SQLite
 				args.callback null, result or []
 				return
 		else
+			console.log 'Warning: @db is not initialized.'
 			args.callback null, []
 		return
 
