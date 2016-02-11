@@ -439,44 +439,43 @@ class model extends Middleware
 							is_created = false
 							__build = util._extend {}, build
 							__defaults = util._extend {}, build.defaults ? {}
-
 							delete __build.defaults if __build.defaults
-
 							try 
 								build_query.get(__build)
 								do update_rows
+								ret = build_query
 							catch err
 								if object_data.result_length is 0
 									for i, v of __build
 										__defaults[i] = v
-									build_query.create(__defaults)
+									ret = build_query.create(__defaults)
 									is_created = true
 								else
 									throw err
 
-							return [build_query, is_created]
+							return [ret, is_created]
 
 					when 'update_or_create'
 						return (build)->
 							is_created = false
 							__build = util._extend {}, build
 							__defaults = util._extend {}, build.defaults ? {}
-
 							delete __build.defaults if __build.defaults
-
 							try 
 								a = build_query.get(__defaults)
+								do update_rows
 								a.update(__build)
+								ret = build_query
 							catch err
 								if object_data.result_length is 0
 									for i, v of __build
 										__defaults[i] = v
-									build_query.create(__defaults)
+									ret = build_query.create(__defaults)
 									is_created = true
 								else
 									throw err
 
-							return [build_query, is_created]
+							return [ret, is_created]
 
 					when 'latest'
 						return (field_date)->
@@ -504,6 +503,11 @@ class model extends Middleware
 					when 'save'
 						delete object_data.data_build.id if object_data.data_build.id?
 						return ->
+							try 
+								model.init_connection.sync null, model_data
+							catch err
+								console.log err.stack ? err
+
 							if type is 'create'
 								try
 									object_data.data_resource = {}
@@ -547,6 +551,12 @@ class model extends Middleware
 							query = builder.remove().from(model_data.table)
 							for i in object_data.query
 								query = query[i[0]].apply query, i[1]
+
+							try 
+								model.init_connection.sync null, model_data
+							catch err
+								console.log err.stack ? err
+
 							try
 								model_data.conn.query.sync model_data.conn, query.build()
 							catch err
@@ -556,11 +566,18 @@ class model extends Middleware
 						object_data.query = [] unless object_data.query?
 						return (new_data) ->
 							d = {}
+
 							for x, y of new_data
 								d[x] = check_field y 
+
 							query = builder.update().into(model_data.table).set(d)
 							for i in object_data.query
 								query = query[i[0]].apply query, i[1]
+							try 
+								model.init_connection.sync null, model_data
+							catch err
+								console.log err.stack ? err
+
 							try
 								model_data.conn.query.sync model_data.conn, query.build()
 							catch err
