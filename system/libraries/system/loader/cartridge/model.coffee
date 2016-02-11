@@ -374,6 +374,11 @@ class model extends Middleware
 				if return_query
 					return query.build()
 
+				try 
+					model.init_connection.sync null, model_data
+				catch err
+					console.log err.stack ? err
+
 				try
 					result = model_data.conn.query.sync model_data.conn, query.build()
 				catch err
@@ -476,7 +481,7 @@ class model extends Middleware
 								try
 									object_data.data_resource = {}
 									result = model_data.conn.query.sync model_data.conn, builder.insert().into(model_data.table).set(object_data.data_build).build()
-									object_data.data_resource.id = object_data.data_build.id = result[0].last_insert_id
+									object_data.data_resource.id = object_data.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id
 								catch err
 									console.log err.stack ? err
 								type = 'update'
@@ -630,11 +635,6 @@ class model extends Middleware
 
 					target_model = model.global_model[$root][name]
 					
-					try 
-						model.init_connection.sync null, target_model
-					catch err
-						console.log err.stach ? err
-
 					return harmonyProxy (->), {
 						get: (target, name) ->
 							# console.log name
