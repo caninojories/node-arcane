@@ -60,7 +60,7 @@ class model extends Middleware
 
 					model.scan $connector, vhost, mods, target_file, class_name
 
-		
+
 		Object.defineProperty global, '__model', {
 			get: ->
 				current_filename = do __stack[1].getFileName
@@ -92,7 +92,7 @@ class model extends Middleware
 
 	__onCreated: (root, name, filename, $connector, primary) ->
 		model.models[root][name] = {}
-		
+
 		cl = __require "#{root}/#{filename}"
 		# cl[d] = v for d, v of new cl
 
@@ -110,7 +110,7 @@ class model extends Middleware
 		if orm.connection?
 			if $connector[root][orm.connection]?
 				orm.conn = $connector[root][orm.connection]
-			else 
+			else
 				orm.conn = null
 
 			orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase
@@ -195,13 +195,13 @@ class model extends Middleware
 			cb err
 
 	@qparam_conditions: {
-		contains: (value) -> 
+		contains: (value) ->
 			ModelComparators.like("%#{value}%")
 
-		startswith: (value) -> 
+		startswith: (value) ->
 			ModelComparators.like("#{value}%")
 
-		endswith: (value) -> 
+		endswith: (value) ->
 			ModelComparators.like("%#{value}")
 
 		range: (value) ->
@@ -320,7 +320,7 @@ class model extends Middleware
 			for i, v of tmp_condition
 				tmp = {}
 				for x in v
-					
+
 					if tmp[x[0]]?
 						tmp = {not: [tmp]} if exclude
 						condition.push ['where', [tmp]]
@@ -349,15 +349,14 @@ class model extends Middleware
 					args.push i
 					tmp = {not: [tmp]} if exclude
 					args.push tmp
-				
-			condition.push ['where', args]
 
+			condition.push ['where', args]
 
 	@build_query_model: (model_data, builder, object, resource, model_list) ->
 		type = if object? then 'create' else 'update'
 
 		object_data = {
-			is_one: false 
+			is_one: false
 			data_build: object ? {}
 			data_resource: resource ? {}
 			data_rows: []
@@ -375,7 +374,7 @@ class model extends Middleware
 				if return_query
 					return query.build()
 
-				try 
+				try
 					model.init_connection.sync null, model_data
 				catch err
 					console.log err.stack ? err
@@ -397,7 +396,7 @@ class model extends Middleware
 					object_data.data_build = result[0]
 
 		check_field = (value) ->
-			if Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
+			if value and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
 				return value.id
 			else
 				return value
@@ -440,7 +439,7 @@ class model extends Middleware
 							__build = util._extend {}, build
 							__defaults = util._extend {}, build.defaults ? {}
 							delete __build.defaults if __build.defaults
-							try 
+							try
 								build_query.get(__build)
 								ret = build_query
 							catch err
@@ -460,7 +459,7 @@ class model extends Middleware
 							__build = util._extend {}, build
 							__defaults = util._extend {}, build.defaults ? {}
 							delete __build.defaults if __build.defaults
-							try 
+							try
 								a = build_query.get(__defaults)
 								a.update(__build)
 								ret = build_query
@@ -478,18 +477,18 @@ class model extends Middleware
 					when 'latest'
 						return (field_date)->
 
-							#return latest data 
-					
+							#return latest data
+
 					when 'earliest'
 						return (field_date)->
 
-							#return latest data 
+							#return latest data
 
 					when 'create'
 						return (build) ->
 							d = {}
 							for x, y of build
-								d[x] = check_field y 
+								d[x] = check_field y
 							r = model.build_query_model model_data, builder, d, null, model_list
 							do r.save
 							return r
@@ -501,7 +500,7 @@ class model extends Middleware
 					when 'save'
 						delete object_data.data_build.id if object_data.data_build.id?
 						return ->
-							try 
+							try
 								model.init_connection.sync null, model_data
 							catch err
 								console.log err.stack ? err
@@ -537,7 +536,7 @@ class model extends Middleware
 							build_query.filter.apply build_query, arguments
 
 							if build_query.length isnt 1
-								throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
+								throw new Error "Model: Error 'get' function should return 1 row, result: #{object_data.result_length}"
 
 							return build_query
 
@@ -553,7 +552,7 @@ class model extends Middleware
 							for i in object_data.query
 								query = query[i[0]].apply query, i[1]
 
-							try 
+							try
 								model.init_connection.sync null, model_data
 							catch err
 								console.log err.stack ? err
@@ -569,12 +568,12 @@ class model extends Middleware
 							d = {}
 
 							for x, y of new_data
-								d[x] = check_field y 
+								d[x] = check_field y
 
 							query = builder.update().into(model_data.table).set(d)
 							for i in object_data.query
 								query = query[i[0]].apply query, i[1]
-							try 
+							try
 								model.init_connection.sync null, model_data
 							catch err
 								console.log err.stack ? err
@@ -627,6 +626,13 @@ class model extends Middleware
 						return ->
 							return build_query.length isnt 0
 
+					when 'aggregate'
+						return ->
+
+							console.log arguments
+							
+							return build_query
+
 					else
 						if not isNaN(parseFloat(name)) and isFinite(name)
 							return object_data.data_rows[name]
@@ -650,7 +656,7 @@ class model extends Middleware
 							console.info name
 							return null
 
-				
+
 			set: (target, name, value) ->
 				if model_data.attributes[name]?
 					object_data.data_build[name] = check_field value
@@ -679,7 +685,7 @@ class model extends Middleware
 					# 	return model.global_model[$root][name]
 
 					target_model = model.global_model[$root][name]
-					
+
 					return harmonyProxy (->), {
 						get: (target, name) ->
 							# console.log name
@@ -687,9 +693,13 @@ class model extends Middleware
 								when 'objects'
 									query_b = new model.Query.Query dialect: target_model.conn.dialect
 									return model.build_query_model target_model, query_b, null, null, model.global_model[$root]
-								# else
-								# 	console.log name
-								# 	return target_model[name]
+								else
+									# console.log name
+									if typeof target_model[name] is 'function'
+										query_b = new model.Query.Query dialect: target_model.conn.dialect
+										db = model.build_query_model target_model, query_b, null, null, model.global_model[$root]
+										return ->
+											target_model[name].apply db, arguments
 
 						set: (target, name, value) ->
 							console.log name, value
@@ -751,7 +761,7 @@ class model extends Middleware
 			if orm.connection?
 				if $connector[vhost][orm.connection]?
 					orm.conn = $connector[vhost][orm.connection]
-				else 
+				else
 					orm.conn = null
 
 				orm.table = (if orm.conn? then orm.conn.prefix else 'tbl_') + do class_name.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase
@@ -870,7 +880,7 @@ class model extends Middleware
 		# before: (value) ->
 		# 	model.Validator.isBefore value
 
-	@validationMessages: 
+	@validationMessages:
 		required: '{{label}} is required.'
 		alpha: '{{label}} is not a valid Alpha characters.'
 		alphadashed: '{{label}} is not a valid Alpha dashes characters.'
@@ -895,7 +905,7 @@ class model extends Middleware
 		unique: '{{label}} is already exists.'
 
 
-	@orm: 
+	@orm:
 		create: (obj) ->
 			if @migrate != 'safe'
 				obj.date_added = obj.date_modified = Math.round(+new Date / 1000)
@@ -970,12 +980,12 @@ class model extends Middleware
 		sort: (property, order) ->
 			unless Array.isArray @_query.order
 				@_query.order = []
-			
+
 			if property[0] is "-"
 				@_query.order.push [ property.substr(1), "Z" ]
 			else
 				@_query.order.push [ property, (if order && order.toUpperCase() is "Z" then "Z" else "A") ]
-			
+
 			this
 
 		where: (obj) ->
@@ -1097,11 +1107,11 @@ class model extends Middleware
 		exec: (cb) ->
 			self = this
 			# model.Query
-			 
+
 			types = null
 			pending_fields = []
 			global_where = @_query?.where
-			
+
 			unless @__query_c
 				@__query_c = new model.Query.Query dialect: @conn.dialect
 
@@ -1179,7 +1189,7 @@ class model extends Middleware
 
 					# model.synchro ->
 					# wait.launchFiber ->
-					
+
 					try
 						x = undefined
 						y = undefined
