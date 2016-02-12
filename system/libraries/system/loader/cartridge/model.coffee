@@ -628,25 +628,39 @@ class model extends Middleware
 
 					when 'aggregate'
 						object_data.query = [] unless object_data.query?
-						return (build) ->
+						return ->
+							parse_val = (value, func, alias, set_alias) ->
+								args = []
+								for x, v of value
+									if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
+										object_data.query.push [func, []]
+										parse_val(v.val, target_func, "#{alias}__#{target_func}", set_alias)
+										break
+									else
+										args.push v
 
-							for i, v of build
-								if model_data.attributes[v]?
-									agregate = i.split '__'
-									tmp_alias_field = ''
-									for y, x of agregate
+								if not target_func and args.length isnt 0
+									object_data.query.push [func, args]
+									object_data.query.push ['as', [set_alias ? "#{args[0]}__#{alias}"]]
+								else if not target_func and args.length is 0
+									object_data.query.push [func, [null, alias]]
 
-										if parseInt(y) isnt 0 and x in ['abs', 'ceil', 'floor', 'round', 'avg', 'min', 'max', 'exp', 'power', 'acos', 'asin', 'atan', 'cos', 'sin', 'tan', 'conv', 'random', 'rand', 'radians', 'degrees', 'sum']
-											if (agregate.length - 1) is parseInt(y)
-												object_data.query.push [x, [v, i]]
-											else
-												object_data.query.push [x, []]
-										else if parseInt(y) isnt 0
-											throw new Error "Unknown function '#{x}' in table '#{model_data.table}'."
+							if arguments.length is 1
+								if typeof arguments[0] is 'object' and not Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
+									for i, v of arguments[0]
+										if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
+											parse_val(v.val, target_func, target_func, i)
+										else
+											throw new Error 'Not a valid aggregate function.'
 
-								else
-									throw new Error "Unknown column '#{v}' in table '#{model_data.table}'."
-
+								else if typeof arguments[0] is 'object' and target_func = Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
+									parse_val(arguments[0].val, target_func, target_func)
+							else if arguments.length > 1
+								for i in arguments
+									if typeof i is 'object' and target_func = Object.getOwnPropertyDescriptor(i, 'sql_function')?.value
+										parse_val(i.val, target_func, target_func)
+									else
+										throw new Error 'Not a valid aggregate function.'
 							return build_query
 
 					else

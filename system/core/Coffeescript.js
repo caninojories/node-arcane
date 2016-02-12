@@ -69,7 +69,7 @@ var scan_libraries = function(dirname, data, ret) {
   if(data[data.length -1] === '*') {
     data.pop();
     var directory = dirname + '/' + data.join('/');
-    var list = null; 
+    var list = null;
 
     try {
       list = fs.readdirSync(directory);
@@ -94,7 +94,7 @@ var scan_libraries = function(dirname, data, ret) {
         // data.pop();
       } else if(fs.lstatSync(directory + '/' + list[i]).isFile()) {
         if(ret) {
-          _ret += f_name + ' :'; 
+          _ret += f_name + ' :';
         } else {
           _ret += f_name + ' =';
         }
@@ -110,19 +110,34 @@ var scan_libraries = function(dirname, data, ret) {
 
 var code_replacer = function(code, options) {
   //code = code.replace(/(import|package)\s([a-zA-Z0-9\.\-\_]*)?\n/g, '\n');
-  
+
   var splited_code = code.split('\n');
   var codes = [];
   for(var line in splited_code) {
-    codes.push(splited_code[line].replace(/*/import\s([a-zA-Z0-9\.\-\_]+)(\s(.+)|)\n/g*//^import\s.*/g, function(match) {
+    codes.push(splited_code[line].replace(/^import\s.*/g, function(match) {
 
-      var regex = /^import\s(.+?)\sfrom\s([^\s]*|[^#]*|[^$]*)|import\s([^\s]*|[^#]*|[^$]*)/g.exec(match), ret = '';
+      var regex = /^import\s(.+?)\sin\s([^\s]*|[^#]*|[^$]*)|import\s([^\s]*|[^#]*|[^$]*)/g.exec(match), ret = '';
 
       if(regex) {
 
         if(regex[1] && regex[2]) {
+			  var vname = regex[2].trim().split('.');
+			  var var_list = regex[1].split(',');
+			  var var_name_list = [];
+			  for(var i in var_list) {
+				   var_name_list.push("'" + var_list[i] + "'");
+			  }
 
-          console.log(regex[1], regex[2]);
+			  if(vname[vname.length - 1] === '*') {
+				//  ret =  vname[vname.length - 2] + ' = { ' + scan_libraries(find_project_dir(options.filename) + '/libraries', vname, true) + '}';
+			  } else {
+				 ___require = '__require("' + library_check(options.filename, regex[2].trim()) + '", { error: "Unable  to find library \'' + regex[2].trim() + '\'." })';
+				 ret = '[' + regex[1] + ']' + ' = (___obj[___v.trim()] for ___v in [' + var_name_list.join(', ') + '] when ___obj[___v.trim()]? if ___obj = ' + ___require + ')';
+				// console.log(ret);
+			  }
+
+
+         //  console.log(regex[1], regex[2]);
 
         } else if(regex[3]) {
           var vname = regex[3].trim().split('.');
@@ -160,7 +175,7 @@ var code_replacer = function(code, options) {
     }));
   }
   code = codes.join('\n');
-  
+
 
 
   var last_to_code = '';
