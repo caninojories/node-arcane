@@ -627,10 +627,27 @@ class model extends Middleware
 							return build_query.length isnt 0
 
 					when 'aggregate'
-						return ->
+						dummy = builder.select().from(model_data.table)
+						object_data.query = [] unless object_data.query?
+						return (build) ->
 
-							console.log arguments
-							
+							for i, v of build
+								if model_data.attributes[v]?
+									agregate = i.split '__'
+									tmp_alias_field = ''
+									for y, x of agregate
+
+										if parseInt(y) isnt 0 and typeof dummy[x] is 'function'
+											if (agregate.length - 1) is parseInt(y)
+												object_data.query.push [x, [v, i]]
+											else
+												object_data.query.push [x, []]
+										else if parseInt(y) isnt 0
+											throw new Error "Unknown function '#{x}' in table '#{model_data.table}'."
+
+								else
+									throw new Error "Unknown column '#{v}' in table '#{model_data.table}'."
+
 							return build_query
 
 					else
