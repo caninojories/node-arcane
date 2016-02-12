@@ -627,7 +627,6 @@ class model extends Middleware
 							return build_query.length isnt 0
 
 					when 'aggregate'
-						dummy = builder.select().from(model_data.table)
 						object_data.query = [] unless object_data.query?
 						return (build) ->
 
@@ -637,7 +636,7 @@ class model extends Middleware
 									tmp_alias_field = ''
 									for y, x of agregate
 
-										if parseInt(y) isnt 0 and typeof dummy[x] is 'function'
+										if parseInt(y) isnt 0 and x in ['abs', 'ceil', 'floor', 'round', 'avg', 'min', 'max', 'exp', 'power', 'acos', 'asin', 'atan', 'cos', 'sin', 'tan', 'conv', 'random', 'rand', 'radians', 'degrees', 'sum']
 											if (agregate.length - 1) is parseInt(y)
 												object_data.query.push [x, [v, i]]
 											else
