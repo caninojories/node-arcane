@@ -922,433 +922,433 @@ class model extends Middleware
 		unique: '{{label}} is already exists.'
 
 
-	@orm:
-		# create: (obj) ->
-		# 	if @migrate != 'safe'
-		# 		obj.date_added = obj.date_modified = Math.round(+new Date / 1000)
-		# 	@_query = insert: obj
-		# 	this
-		#
-		# sum: (param, as) ->
-		# 	if not @_query then @_query = {}
-		# 	if not @_query.sum then @_query.sum = []
-		# 	if not @_query.select then @_query.select = []
-		#
-		# 	@_query.sum.push [(param ? true), as]
-		#
-		# 	this
-		#
-		# find: (obj) ->
-		# 	select = []
-		# 	if @_query and @_query.select
-		# 		select = @_query.select
-		# 	@_query =
-		# 		select: select
-		# 		where: obj
-		# 	this
-		#
-		# update: (update_obj, where_obj) ->
-		# 	if @migrate != 'safe'
-		# 		update_obj.date_modified = Math.round(+new Date / 1000)
-		# 	@_query =
-		# 		update: update_obj
-		# 		where: where_obj
-		# 	this
-		#
-		# findOne: (number) ->
-		# 	select = []
-		# 	if @_query and @_query.select
-		# 		select = @_query.select
-		# 	@_query =
-		# 		select: select
-		# 		limit: number or 1
-		# 		findOne: true
-		# 	this
-		#
-		# destroy: (where_obj) ->
-		# 	@_query =
-		# 		delete: true
-		# 		where: where_obj
-		# 	this
-		#
-		# count: (where_obj) ->
-		# 	@_query =
-		# 		count: true
-		# 		where: where_obj
-		# 	this
-		#
-		# populate: (field) ->
-		# 	if !@_query
-		# 		@_query = {}
-		# 	if !@_query.select
-		# 		@_query.select = []
-		# 	@_query.select.push field
-		# 	this
-		#
-		# stream: ->
-		# 	this
-		#
-		# populateAll: ->
-		# 	if !@_query.select
-		# 		@_query.select = []
-		# 	@_query.select = '*'
-		# 	this
-		#
-		# sort: (property, order) ->
-		# 	unless Array.isArray @_query.order
-		# 		@_query.order = []
-		#
-		# 	if property[0] is "-"
-		# 		@_query.order.push [ property.substr(1), "Z" ]
-		# 	else
-		# 		@_query.order.push [ property, (if order && order.toUpperCase() is "Z" then "Z" else "A") ]
-		#
-		# 	this
-		#
-		# where: (obj) ->
-		# 	@_query.where = obj
-		# 	this
-		#
-		# limit: (limit) ->
-		# 	@_query.limit = limit
-		# 	this
-		#
-		# offset: (offset) ->
-		# 	@_query.offset = offset
-		# 	this
-		#
-		# group: (group) ->
-		# 	@_query.group = group
-		# 	this
-
-		##################################################################################################################################
-
-		# validate: (params) ->
-		# 	self = this
-		# 	if typeof params is 'object'
-		# 		current_field = null
-		# 		current_label = null
-		# 		handler = harmonyProxy params,
-		# 			get: (proxy, name) ->
-		# 				if params[name]
-		# 					params[name]
-		# 				else if self[name]
-		# 					self[name]
-		# 				else if name is '__label'
-		# 					current_label
-		# 				else if name is '__field'
-		# 					current_field
-		#
-		# 			set: (proxy, name, value) ->
-		# 				params[name] = value
-		#
-		# 		for i, v of params
-		# 			label = i.replace /\_.|\-./g, (match) ->
-		# 				do match.replace(/\_|\-/g, ' ').toUpperCase
-		# 			label = label.replace /^./g, (match) ->
-		# 				match.toUpperCase
-		#
-		# 			current_field = i
-		#
-		# 			if @attributes[i]?
-		# 				if typeof @attributes[i] is 'object' and @attributes[i].validation?
-		# 					if typeof @attributes[i].validation.label is 'string'
-		# 						current_label = @attributes[i].validation.label
-		#
-		# 					if typeof @attributes[i].validation.minLength is 'number' and v.length > @attributes[i].validation.minLength
-		# 						throw field: i, error: "model.validation.#{i}.minLength", label: current_label, message: ''
-		#
-		# 					if typeof @attributes[i].validation.maxLength is 'number' and v.length < @attributes[i].validation.maxLength
-		# 						throw field: i, error: "model.validation.#{i}.maxLength", label: current_label, message: ''
-		#
-		# 					if typeof @attributes[i].validation.pattern is 'string'
-		# 						for j in @attributes[i].validation.pattern.split '|'
-		# 							if model.validator[j]
-		# 								if not model.validator[j].call handler, v
-		# 									error_message = null
-		# 									if @validationMessages?[i]?[j]
-		# 										error_message = @validationMessages[i][j].replace /\{\{label\}\}/g, current_label
-		# 									else if model.validationMessages[j]
-		# 										error_message = model.validationMessages[j].replace /\{\{label\}\}/g, current_label
-		#
-		# 									throw field: i, error: "model.validation.#{i}.#{j}", label: current_label, message: error_message
-		# 							else if typeof @types is 'object' and typeof @types[j] is 'function'
-		# 								if not @types[j].call handler, v
-		# 									error_message = null
-		# 									if @validationMessages?[i]?[j]
-		# 										error_message = @validationMessages[i][j].replace /\{\{label\}\}/g, current_label
-		# 									else if model.validationMessages[j]
-		# 										error_message = model.validationMessages[j].replace /\{\{label\}\}/g, current_label
-		#
-		# 									throw field: i, error: "model.validation.#{i}.#{j}", label: current_label, message: ''
-		#
-		# 			# else
-		# 			# 	throw "Column '#{i}' is no exists."
-		#
-		# 		# console.log @attributes
-		#
-		# 	this
-
-		##################################################################################################################################
-
-		# validateAndCreate: (params) ->
-		#
-		# 	this
-		#
-		# validateAndUpdate: (params) ->
-		#
-		# 	this
-		#
-		# commit: ->
-		# 	result = wait.forMethod @, 'exec'
-		#
-		# 	self = this
-		# 	if !result
-		# 		return null
-		#
-		# 	return harmonyProxy result,
-		# 		get: (proxy, name) ->
-		# 			if name is 'inspect'
-		# 				return result
-		# 			else if name is 'toString'
-		# 				->
-		# 					if self.hasOwnProperty('__unicode') and typeof self.__unicode == 'function'
-		# 						self.__unicode.call self, result
-		# 					else
-		# 						JSON.stringify result, null, 4
-		# 			else
-		# 				if result and result.hasOwnProperty(name)
-		# 					result[name]
-		# 				else
-		# 					null
-		# 		set: (proxy, name, value) ->
-		# 		# apply: (target, thisArg, argumentsList) ->
-		# 		# 	->
-		#
-		# exec: (cb) ->
-		# 	self = this
-		# 	# model.Query
-		#
-		# 	types = null
-		# 	pending_fields = []
-		# 	global_where = @_query?.where
-		#
-		# 	unless @__query_c
-		# 		@__query_c = new model.Query.Query dialect: @conn.dialect
-		#
-		# 	if @_query.select
-		# 		tmp = @__query_c.select().from @table
-		#
-		# 		if @_query.select isnt '*' and Array.isArray(@_query.select) and @_query.select.length isnt 0
-		# 			tmp.select @_query.select
-		#
-		# 		if @_query.where and Object.keys(@_query.where).length isnt 0
-		# 			tmp.where @_query.where
-		#
-		# 		for i in @_query.sum ? []
-		# 			if typeof i[0] is 'string'
-		# 				_tmp = tmp.sum i[0]
-		# 				if i[1] then _tmp.as i[1]
-		# 			else
-		# 				do tmp.sum
-		#
-		# 		types = 1
-		# 	else if @_query.update
-		# 		tmp = @__query_c.update().into(@table).set @_query.update
-		#
-		# 		if @_query.where and Object.keys(@_query.where).length isnt 0
-		# 			tmp.where @_query.where
-		#
-		# 		types = 2
-		# 	else if @_query.insert
-		# 		tmp = @__query_c.insert().into(@table).set @_query.insert
-		#
-		# 		types = 3
-		# 	else if @_query.delete
-		# 		tmp = @__query_c.remove().from @table
-		#
-		# 		if @_query.where and Object.keys(@_query.where).length isnt 0
-		# 			tmp.where @_query.where
-		#
-		# 		types = 4
-		#
-		# 	# console.log @_query
-		#
-		# 	if @_query.limit then tmp.limit @_query.limit
-		# 	if @_query.offset then tmp.offset @_query.offset
-		#
-		# 	if @_query.order
-		# 		for i in @_query.order
-		# 			tmp.order i[0], i[1]
-		#
-		# 	if @_query.group then tmp.groupBy @_query.group
-		#
-		# 	is_one_result = @_query.findOne or false
-		#
-		# 	@_query = null
-		#
-		# 	# console.log do tmp.build
-		#
-		#
-		#
-		# 	do_query = (err) ->
-		# 		# count++
-		# 		# console.log 'called >>>>>>>>>>>>.', count, query
-		# 		# console.log (new Error).stack
-		#
-		# 		if err
-		# 			console.error err.stack ? err
-		# 			cb err, null
-		# 			return
-		#
-		# 		# console.log tmp.build()
-		#
-		# 		self.conn.query tmp.build(), [], (err, result) ->
-		# 			throw err if err
-		# 				# cb err, false
-		# 				# return
-		#
-		# 			# model.synchro ->
-		# 			# wait.launchFiber ->
-		#
-		# 			try
-		# 				x = undefined
-		# 				y = undefined
-		# 				_find = undefined
-		# 				q = undefined
-		# 				__find = undefined
-		# 				ret_cval = undefined
-		# 				f = undefined
-		# 				r = undefined
-		# 				t_fields = undefined
-		# 				w = undefined
-		# 				vals = undefined
-		# 				insert_result = undefined
-		# 				last_insert_id = null
-		#
-		# 				###,
-		# 				raw_lii = null;
-		# 				###
-		#
-		# 				try
-		# 					if types == 3
-		# 						if result[0]?.id
-		# 							# last_insert_id = result[0].id
-		# 							cb null, last_insert_id: result[0].id
-		# 						else
-		# 							last_insert_id = self.conn.last_insert_id (err, ret) ->
-		# 								if err
-		# 									console.log err.stack ? err
-		# 								else
-		# 									cb null, last_insert_id: ret[0].last_insert_id
-		# 				catch e
-		# 					console.log e.stack ? e
-		#
-		# 				# console.log 'teeererer'
-		#
-		# 				# try
-		# 				for x of result
-		#
-		# 					if result.hasOwnProperty(x)
-		#
-		# 						for y of result[x]
-		#
-		# 							if result[x].hasOwnProperty(y)
-		#
-		# 								_find = {}
-		#
-		# 								if typeof self.attributes[y] == 'object' and self.attributes[y].collection and self.attributes[y].via
-		#
-		# 									_find = {}
-		# 									_find[self.attributes[y].via] = result[x][y]
-		#
-		# 									# console.log 'Request query first'
-		# 									await model.global_model[self.$root][self.attributes[y].collection].find(_find).exec defer err_d, result[x][y]
-		# 									throw err_d if err_d
-		#
-		#
-		# 									if result[x][y].length is 1
-		# 										result[x][y] = result[x][y][0]
-		# 									else if result[x][y].length is 0
-		# 										result[x][y] = null
-		# 								else if typeof self.attributes[y] == 'object' and self.attributes[y].model
-		#
-		# 									# console.log 'teeererer 8888888888888888'
-		#
-		# 									if result[x][y]
-		# 										_find = {}
-		# 										_find.id = result[x][y]
-		#
-		# 										# console.log 'teeererer 99999999999999999'
-		#
-		# 										if not model.global_model[self.$root][self.attributes[y].model]?
-		# 											throw new Error "MODEL file of 'tbl_#{self.attributes[y].model}' is not found."
-		#
-		# 										# console.log 'Request query second'
-		# 										await model.global_model[self.$root][self.attributes[y].model].findOne().where(_find).exec defer err_d, result[x][y]
-		# 										throw err_d if err_d
-		#
-		# 				if is_one_result
-		# 					result = result[0] or null
-		#
-		#
-		# 				if types == 2 #and pending_fields.length != 0
-		# 					# update
-		#
-		# 					for q of self.attributes
-		#
-		# 						if self.attributes.hasOwnProperty(q)
-		#
-		# 							# __find = {}
-		# 							if typeof self.attributes[q] == 'object' and (self.attributes[q].collection and self.attributes[q].via or self.attributes[q].model)
-		#
-		# 								await self.find(global_where).exec defer err_d, ret_cval
-		# 								throw err_d if err_d
-		#
-		#
-		# 				cb null, result
-		# 			catch err
-		# 				cb err
-		# 			# , (err) ->
-		# 			# 	console.log err.stack ? err
-		#
-		# 			return
-		#
-		# 		return
-		#
-		# 	try if @conn
-		# 		if @conn.$
-		# 			self = @
-		# 			@conn.$ ->
-		# 				self.is_init = true
-		# 				if self.migrate and self.migrate isnt 'safe'
-		# 					# init = wait.forMethod self.conn, 'table', self.table.replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root]
-		# 					await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
-		# 					throw d_err if d_err
-		#
-		# 					if init and init is 'onCreate' && self.hasOwnProperty init
-		# 						do table[init]
-		# 				do do_query
-		# 		else if not @is_init?
-		# 			@is_init = true
-		# 			if @migrate and @migrate isnt 'safe'
-		# 				# init = wait.forMethod @conn, 'table', @table.replace(new RegExp("^#{@conn.prefix}"), ''), @attributes, model.global_model[self.$root]
-		# 				await @conn.table @table.replace(new RegExp("^#{@conn.prefix}"), ''), @attributes, model.global_model[self.$root], defer d_err, init
-		# 				throw d_err if d_err
-		#
-		# 				if init and init is 'onCreate' && @hasOwnProperty init
-		# 					do table[init]
-		#
-		# 			do do_query
-		# 		else
-		# 			do do_query
-		# 	else
-		# 		cb 'ERROR: Can\'t query without connection'
-		# 		console.error 'ERROR: Can\'t query without connection'
-		# 	catch err
-		# 		cb err
-		#
-		# 	return
+	# @orm:
+	# 	# create: (obj) ->
+	# 	# 	if @migrate != 'safe'
+	# 	# 		obj.date_added = obj.date_modified = Math.round(+new Date / 1000)
+	# 	# 	@_query = insert: obj
+	# 	# 	this
+	# 	#
+	# 	# sum: (param, as) ->
+	# 	# 	if not @_query then @_query = {}
+	# 	# 	if not @_query.sum then @_query.sum = []
+	# 	# 	if not @_query.select then @_query.select = []
+	# 	#
+	# 	# 	@_query.sum.push [(param ? true), as]
+	# 	#
+	# 	# 	this
+	# 	#
+	# 	# find: (obj) ->
+	# 	# 	select = []
+	# 	# 	if @_query and @_query.select
+	# 	# 		select = @_query.select
+	# 	# 	@_query =
+	# 	# 		select: select
+	# 	# 		where: obj
+	# 	# 	this
+	# 	#
+	# 	# update: (update_obj, where_obj) ->
+	# 	# 	if @migrate != 'safe'
+	# 	# 		update_obj.date_modified = Math.round(+new Date / 1000)
+	# 	# 	@_query =
+	# 	# 		update: update_obj
+	# 	# 		where: where_obj
+	# 	# 	this
+	# 	#
+	# 	# findOne: (number) ->
+	# 	# 	select = []
+	# 	# 	if @_query and @_query.select
+	# 	# 		select = @_query.select
+	# 	# 	@_query =
+	# 	# 		select: select
+	# 	# 		limit: number or 1
+	# 	# 		findOne: true
+	# 	# 	this
+	# 	#
+	# 	# destroy: (where_obj) ->
+	# 	# 	@_query =
+	# 	# 		delete: true
+	# 	# 		where: where_obj
+	# 	# 	this
+	# 	#
+	# 	# count: (where_obj) ->
+	# 	# 	@_query =
+	# 	# 		count: true
+	# 	# 		where: where_obj
+	# 	# 	this
+	# 	#
+	# 	# populate: (field) ->
+	# 	# 	if !@_query
+	# 	# 		@_query = {}
+	# 	# 	if !@_query.select
+	# 	# 		@_query.select = []
+	# 	# 	@_query.select.push field
+	# 	# 	this
+	# 	#
+	# 	# stream: ->
+	# 	# 	this
+	# 	#
+	# 	# populateAll: ->
+	# 	# 	if !@_query.select
+	# 	# 		@_query.select = []
+	# 	# 	@_query.select = '*'
+	# 	# 	this
+	# 	#
+	# 	# sort: (property, order) ->
+	# 	# 	unless Array.isArray @_query.order
+	# 	# 		@_query.order = []
+	# 	#
+	# 	# 	if property[0] is "-"
+	# 	# 		@_query.order.push [ property.substr(1), "Z" ]
+	# 	# 	else
+	# 	# 		@_query.order.push [ property, (if order && order.toUpperCase() is "Z" then "Z" else "A") ]
+	# 	#
+	# 	# 	this
+	# 	#
+	# 	# where: (obj) ->
+	# 	# 	@_query.where = obj
+	# 	# 	this
+	# 	#
+	# 	# limit: (limit) ->
+	# 	# 	@_query.limit = limit
+	# 	# 	this
+	# 	#
+	# 	# offset: (offset) ->
+	# 	# 	@_query.offset = offset
+	# 	# 	this
+	# 	#
+	# 	# group: (group) ->
+	# 	# 	@_query.group = group
+	# 	# 	this
+	#
+	# 	##################################################################################################################################
+	#
+	# 	# validate: (params) ->
+	# 	# 	self = this
+	# 	# 	if typeof params is 'object'
+	# 	# 		current_field = null
+	# 	# 		current_label = null
+	# 	# 		handler = harmonyProxy params,
+	# 	# 			get: (proxy, name) ->
+	# 	# 				if params[name]
+	# 	# 					params[name]
+	# 	# 				else if self[name]
+	# 	# 					self[name]
+	# 	# 				else if name is '__label'
+	# 	# 					current_label
+	# 	# 				else if name is '__field'
+	# 	# 					current_field
+	# 	#
+	# 	# 			set: (proxy, name, value) ->
+	# 	# 				params[name] = value
+	# 	#
+	# 	# 		for i, v of params
+	# 	# 			label = i.replace /\_.|\-./g, (match) ->
+	# 	# 				do match.replace(/\_|\-/g, ' ').toUpperCase
+	# 	# 			label = label.replace /^./g, (match) ->
+	# 	# 				match.toUpperCase
+	# 	#
+	# 	# 			current_field = i
+	# 	#
+	# 	# 			if @attributes[i]?
+	# 	# 				if typeof @attributes[i] is 'object' and @attributes[i].validation?
+	# 	# 					if typeof @attributes[i].validation.label is 'string'
+	# 	# 						current_label = @attributes[i].validation.label
+	# 	#
+	# 	# 					if typeof @attributes[i].validation.minLength is 'number' and v.length > @attributes[i].validation.minLength
+	# 	# 						throw field: i, error: "model.validation.#{i}.minLength", label: current_label, message: ''
+	# 	#
+	# 	# 					if typeof @attributes[i].validation.maxLength is 'number' and v.length < @attributes[i].validation.maxLength
+	# 	# 						throw field: i, error: "model.validation.#{i}.maxLength", label: current_label, message: ''
+	# 	#
+	# 	# 					if typeof @attributes[i].validation.pattern is 'string'
+	# 	# 						for j in @attributes[i].validation.pattern.split '|'
+	# 	# 							if model.validator[j]
+	# 	# 								if not model.validator[j].call handler, v
+	# 	# 									error_message = null
+	# 	# 									if @validationMessages?[i]?[j]
+	# 	# 										error_message = @validationMessages[i][j].replace /\{\{label\}\}/g, current_label
+	# 	# 									else if model.validationMessages[j]
+	# 	# 										error_message = model.validationMessages[j].replace /\{\{label\}\}/g, current_label
+	# 	#
+	# 	# 									throw field: i, error: "model.validation.#{i}.#{j}", label: current_label, message: error_message
+	# 	# 							else if typeof @types is 'object' and typeof @types[j] is 'function'
+	# 	# 								if not @types[j].call handler, v
+	# 	# 									error_message = null
+	# 	# 									if @validationMessages?[i]?[j]
+	# 	# 										error_message = @validationMessages[i][j].replace /\{\{label\}\}/g, current_label
+	# 	# 									else if model.validationMessages[j]
+	# 	# 										error_message = model.validationMessages[j].replace /\{\{label\}\}/g, current_label
+	# 	#
+	# 	# 									throw field: i, error: "model.validation.#{i}.#{j}", label: current_label, message: ''
+	# 	#
+	# 	# 			# else
+	# 	# 			# 	throw "Column '#{i}' is no exists."
+	# 	#
+	# 	# 		# console.log @attributes
+	# 	#
+	# 	# 	this
+	#
+	# 	##################################################################################################################################
+	#
+	# 	# validateAndCreate: (params) ->
+	# 	#
+	# 	# 	this
+	# 	#
+	# 	# validateAndUpdate: (params) ->
+	# 	#
+	# 	# 	this
+	# 	#
+	# 	# commit: ->
+	# 	# 	result = wait.forMethod @, 'exec'
+	# 	#
+	# 	# 	self = this
+	# 	# 	if !result
+	# 	# 		return null
+	# 	#
+	# 	# 	return harmonyProxy result,
+	# 	# 		get: (proxy, name) ->
+	# 	# 			if name is 'inspect'
+	# 	# 				return result
+	# 	# 			else if name is 'toString'
+	# 	# 				->
+	# 	# 					if self.hasOwnProperty('__unicode') and typeof self.__unicode == 'function'
+	# 	# 						self.__unicode.call self, result
+	# 	# 					else
+	# 	# 						JSON.stringify result, null, 4
+	# 	# 			else
+	# 	# 				if result and result.hasOwnProperty(name)
+	# 	# 					result[name]
+	# 	# 				else
+	# 	# 					null
+	# 	# 		set: (proxy, name, value) ->
+	# 	# 		# apply: (target, thisArg, argumentsList) ->
+	# 	# 		# 	->
+	# 	#
+	# 	# exec: (cb) ->
+	# 	# 	self = this
+	# 	# 	# model.Query
+	# 	#
+	# 	# 	types = null
+	# 	# 	pending_fields = []
+	# 	# 	global_where = @_query?.where
+	# 	#
+	# 	# 	unless @__query_c
+	# 	# 		@__query_c = new model.Query.Query dialect: @conn.dialect
+	# 	#
+	# 	# 	if @_query.select
+	# 	# 		tmp = @__query_c.select().from @table
+	# 	#
+	# 	# 		if @_query.select isnt '*' and Array.isArray(@_query.select) and @_query.select.length isnt 0
+	# 	# 			tmp.select @_query.select
+	# 	#
+	# 	# 		if @_query.where and Object.keys(@_query.where).length isnt 0
+	# 	# 			tmp.where @_query.where
+	# 	#
+	# 	# 		for i in @_query.sum ? []
+	# 	# 			if typeof i[0] is 'string'
+	# 	# 				_tmp = tmp.sum i[0]
+	# 	# 				if i[1] then _tmp.as i[1]
+	# 	# 			else
+	# 	# 				do tmp.sum
+	# 	#
+	# 	# 		types = 1
+	# 	# 	else if @_query.update
+	# 	# 		tmp = @__query_c.update().into(@table).set @_query.update
+	# 	#
+	# 	# 		if @_query.where and Object.keys(@_query.where).length isnt 0
+	# 	# 			tmp.where @_query.where
+	# 	#
+	# 	# 		types = 2
+	# 	# 	else if @_query.insert
+	# 	# 		tmp = @__query_c.insert().into(@table).set @_query.insert
+	# 	#
+	# 	# 		types = 3
+	# 	# 	else if @_query.delete
+	# 	# 		tmp = @__query_c.remove().from @table
+	# 	#
+	# 	# 		if @_query.where and Object.keys(@_query.where).length isnt 0
+	# 	# 			tmp.where @_query.where
+	# 	#
+	# 	# 		types = 4
+	# 	#
+	# 	# 	# console.log @_query
+	# 	#
+	# 	# 	if @_query.limit then tmp.limit @_query.limit
+	# 	# 	if @_query.offset then tmp.offset @_query.offset
+	# 	#
+	# 	# 	if @_query.order
+	# 	# 		for i in @_query.order
+	# 	# 			tmp.order i[0], i[1]
+	# 	#
+	# 	# 	if @_query.group then tmp.groupBy @_query.group
+	# 	#
+	# 	# 	is_one_result = @_query.findOne or false
+	# 	#
+	# 	# 	@_query = null
+	# 	#
+	# 	# 	# console.log do tmp.build
+	# 	#
+	# 	#
+	# 	#
+	# 	# 	do_query = (err) ->
+	# 	# 		# count++
+	# 	# 		# console.log 'called >>>>>>>>>>>>.', count, query
+	# 	# 		# console.log (new Error).stack
+	# 	#
+	# 	# 		if err
+	# 	# 			console.error err.stack ? err
+	# 	# 			cb err, null
+	# 	# 			return
+	# 	#
+	# 	# 		# console.log tmp.build()
+	# 	#
+	# 	# 		self.conn.query tmp.build(), [], (err, result) ->
+	# 	# 			throw err if err
+	# 	# 				# cb err, false
+	# 	# 				# return
+	# 	#
+	# 	# 			# model.synchro ->
+	# 	# 			# wait.launchFiber ->
+	# 	#
+	# 	# 			try
+	# 	# 				x = undefined
+	# 	# 				y = undefined
+	# 	# 				_find = undefined
+	# 	# 				q = undefined
+	# 	# 				__find = undefined
+	# 	# 				ret_cval = undefined
+	# 	# 				f = undefined
+	# 	# 				r = undefined
+	# 	# 				t_fields = undefined
+	# 	# 				w = undefined
+	# 	# 				vals = undefined
+	# 	# 				insert_result = undefined
+	# 	# 				last_insert_id = null
+	# 	#
+	# 	# 				###,
+	# 	# 				raw_lii = null;
+	# 	# 				###
+	# 	#
+	# 	# 				try
+	# 	# 					if types == 3
+	# 	# 						if result[0]?.id
+	# 	# 							# last_insert_id = result[0].id
+	# 	# 							cb null, last_insert_id: result[0].id
+	# 	# 						else
+	# 	# 							last_insert_id = self.conn.last_insert_id (err, ret) ->
+	# 	# 								if err
+	# 	# 									console.log err.stack ? err
+	# 	# 								else
+	# 	# 									cb null, last_insert_id: ret[0].last_insert_id
+	# 	# 				catch e
+	# 	# 					console.log e.stack ? e
+	# 	#
+	# 	# 				# console.log 'teeererer'
+	# 	#
+	# 	# 				# try
+	# 	# 				for x of result
+	# 	#
+	# 	# 					if result.hasOwnProperty(x)
+	# 	#
+	# 	# 						for y of result[x]
+	# 	#
+	# 	# 							if result[x].hasOwnProperty(y)
+	# 	#
+	# 	# 								_find = {}
+	# 	#
+	# 	# 								if typeof self.attributes[y] == 'object' and self.attributes[y].collection and self.attributes[y].via
+	# 	#
+	# 	# 									_find = {}
+	# 	# 									_find[self.attributes[y].via] = result[x][y]
+	# 	#
+	# 	# 									# console.log 'Request query first'
+	# 	# 									await model.global_model[self.$root][self.attributes[y].collection].find(_find).exec defer err_d, result[x][y]
+	# 	# 									throw err_d if err_d
+	# 	#
+	# 	#
+	# 	# 									if result[x][y].length is 1
+	# 	# 										result[x][y] = result[x][y][0]
+	# 	# 									else if result[x][y].length is 0
+	# 	# 										result[x][y] = null
+	# 	# 								else if typeof self.attributes[y] == 'object' and self.attributes[y].model
+	# 	#
+	# 	# 									# console.log 'teeererer 8888888888888888'
+	# 	#
+	# 	# 									if result[x][y]
+	# 	# 										_find = {}
+	# 	# 										_find.id = result[x][y]
+	# 	#
+	# 	# 										# console.log 'teeererer 99999999999999999'
+	# 	#
+	# 	# 										if not model.global_model[self.$root][self.attributes[y].model]?
+	# 	# 											throw new Error "MODEL file of 'tbl_#{self.attributes[y].model}' is not found."
+	# 	#
+	# 	# 										# console.log 'Request query second'
+	# 	# 										await model.global_model[self.$root][self.attributes[y].model].findOne().where(_find).exec defer err_d, result[x][y]
+	# 	# 										throw err_d if err_d
+	# 	#
+	# 	# 				if is_one_result
+	# 	# 					result = result[0] or null
+	# 	#
+	# 	#
+	# 	# 				if types == 2 #and pending_fields.length != 0
+	# 	# 					# update
+	# 	#
+	# 	# 					for q of self.attributes
+	# 	#
+	# 	# 						if self.attributes.hasOwnProperty(q)
+	# 	#
+	# 	# 							# __find = {}
+	# 	# 							if typeof self.attributes[q] == 'object' and (self.attributes[q].collection and self.attributes[q].via or self.attributes[q].model)
+	# 	#
+	# 	# 								await self.find(global_where).exec defer err_d, ret_cval
+	# 	# 								throw err_d if err_d
+	# 	#
+	# 	#
+	# 	# 				cb null, result
+	# 	# 			catch err
+	# 	# 				cb err
+	# 	# 			# , (err) ->
+	# 	# 			# 	console.log err.stack ? err
+	# 	#
+	# 	# 			return
+	# 	#
+	# 	# 		return
+	# 	#
+	# 	# 	try if @conn
+	# 	# 		if @conn.$
+	# 	# 			self = @
+	# 	# 			@conn.$ ->
+	# 	# 				self.is_init = true
+	# 	# 				if self.migrate and self.migrate isnt 'safe'
+	# 	# 					# init = wait.forMethod self.conn, 'table', self.table.replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root]
+	# 	# 					await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model.global_model[self.$root], defer d_err, init
+	# 	# 					throw d_err if d_err
+	# 	#
+	# 	# 					if init and init is 'onCreate' && self.hasOwnProperty init
+	# 	# 						do table[init]
+	# 	# 				do do_query
+	# 	# 		else if not @is_init?
+	# 	# 			@is_init = true
+	# 	# 			if @migrate and @migrate isnt 'safe'
+	# 	# 				# init = wait.forMethod @conn, 'table', @table.replace(new RegExp("^#{@conn.prefix}"), ''), @attributes, model.global_model[self.$root]
+	# 	# 				await @conn.table @table.replace(new RegExp("^#{@conn.prefix}"), ''), @attributes, model.global_model[self.$root], defer d_err, init
+	# 	# 				throw d_err if d_err
+	# 	#
+	# 	# 				if init and init is 'onCreate' && @hasOwnProperty init
+	# 	# 					do table[init]
+	# 	#
+	# 	# 			do do_query
+	# 	# 		else
+	# 	# 			do do_query
+	# 	# 	else
+	# 	# 		cb 'ERROR: Can\'t query without connection'
+	# 	# 		console.error 'ERROR: Can\'t query without connection'
+	# 	# 	catch err
+	# 	# 		cb err
+	# 	#
+	# 	# 	return
 
 	@escapeRegExp: (str) ->
 		str.replace /[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, '\\$&'
