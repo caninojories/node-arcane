@@ -77,13 +77,23 @@ class MySQL
 						console.error err.stack
 						return
 					#console.log(query, data);
+
 					connection.query query, data, (err, rows) ->
-						connection.release()
-						if err
-							console.log err.stack ? err
-							console.log new Error(String(query) + ' -> ' + String(data)).stack
-							#console.log(err.stack || err);
-						cb err, rows
+						if /^INSERT\sINTO/g.test query
+							connection.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (err, result) ->
+								connection.release()
+								if err
+									console.log err.stack ? err
+									console.log new Error(String(query) + ' -> ' + String(data)).stack
+									#console.log(err.stack || err);
+								cb err, result
+						else
+							connection.release()
+							if err
+								console.log err.stack ? err
+								console.log new Error(String(query) + ' -> ' + String(data)).stack
+								#console.log(err.stack || err);
+							cb err, rows
 						return
 					return
 				return
@@ -238,5 +248,3 @@ class MySQL
 				@db.close()
 			catch err
 		return
-
- 

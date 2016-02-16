@@ -396,7 +396,7 @@ class model extends Middleware
 					object_data.data_build = result[0]
 
 		check_field = (value) ->
-			if value and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
+			if value and typeof value is 'object' and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
 				return value.id
 			else
 				return value
