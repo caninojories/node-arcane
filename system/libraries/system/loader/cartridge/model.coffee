@@ -572,7 +572,9 @@ class model extends Middleware
 
 							query = builder.update().into(model_data.table).set(d)
 							for i in object_data.query
+								console.log i, query
 								query = query[i[0]].apply query, i[1]
+
 							try
 								model.init_connection.sync null, model_data
 							catch err
