@@ -79,21 +79,26 @@ class MySQL
 					#console.log(query, data);
 
 					connection.query query, data, (err, rows) ->
+						if err?
+							connection.release()
+							# console.log 'LAST QUERY: ' + String(query)
+							# console.log err.stack ? err
+							cb err, null
+							return
+
 						if /^INSERT\sINTO/g.test query
 							connection.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (err, result) ->
 								connection.release()
-								if err
-									console.log err.stack ? err
-									console.log new Error(String(query) + ' -> ' + String(data)).stack
-									#console.log(err.stack || err);
-								cb err, result
+								if err?
+									# console.log 'LAST QUERY: ' + String(query)
+									# console.log err.stack ? err
+									cb err, null
+									return
+
+								cb null, result
 						else
 							connection.release()
-							if err
-								console.log err.stack ? err
-								console.log new Error(String(query) + ' -> ' + String(data)).stack
-								#console.log(err.stack || err);
-							cb err, rows
+							cb null, rows
 						return
 					return
 				return
@@ -229,14 +234,12 @@ class MySQL
 			@db.query args.query, args.data, (err, result) ->
 				#console.log(err, result[0]);
 				if err
-					if err.stack and err.code != 'ER_TABLE_EXISTS_ERROR'
-						#console.log(args.query, args.data);
-						#console.log(err);
-						#console.error(err.stack);
+					if err.stack and err.code is 'ER_TABLE_EXISTS_ERROR'
+						args.callback null, []
 					else
-					args.callback err, []
+						args.callback err, null
 					return
-				args.callback null, result or []
+				args.callback null, result ? []
 				return
 		else
 			args.callback null, []

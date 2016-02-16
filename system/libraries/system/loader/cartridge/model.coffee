@@ -9,12 +9,12 @@ import harmony-proxy
 import path
 
 import tools.wait
-
 import tools.iced
-
 import util
-
 import model.ModelComparators
+
+import ObjectDoesNotExist in core.Exceptions
+
 
 class model extends Middleware
 
@@ -381,8 +381,9 @@ class model extends Middleware
 
 				try
 					result = model_data.conn.query.sync model_data.conn, query.build()
-				catch err
-					console.log err.stack ? err
+				catch
+					# console.log err.stack ? err
+					throw _error
 
 				object_data.result_length = result.length
 
@@ -442,14 +443,14 @@ class model extends Middleware
 							try
 								build_query.get(__build)
 								ret = build_query
-							catch err
-								if object_data.result_length is 0
+							catch
+								if _error.code is ObjectDoesNotExist
 									for i, v of __build
 										__defaults[i] = v
 									ret = build_query.create(__defaults)
 									is_created = true
 								else
-									throw err
+									throw _error
 
 							return [ret, is_created]
 
@@ -463,14 +464,14 @@ class model extends Middleware
 								a = build_query.get(__defaults)
 								a.update(__build)
 								ret = build_query
-							catch err
-								if object_data.result_length is 0
+							catch
+								if _error.code is ObjectDoesNotExist
 									for i, v of __build
 										__defaults[i] = v
 									ret = build_query.create(__defaults)
 									is_created = true
 								else
-									throw err
+									throw _error
 
 							return [ret, is_created]
 
@@ -509,12 +510,15 @@ class model extends Middleware
 									object_data.data_resource = {}
 									result = model_data.conn.query.sync model_data.conn, builder.insert().into(model_data.table).set(object_data.data_build).build()
 									object_data.data_resource.id = object_data.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id
-								catch err
-									console.log err.stack ? err
+								catch
+									throw _error
 								type = 'update'
 							else if type is 'update' and object_data.data_resource?.id?
-								model_data.conn.query.sync model_data.conn, builder.update().into(model_data.table).set(object_data.data_build).where(object_data.data_resource).build()
-								object_data.data_build.id = object_data.data_resource.id
+								try
+									model_data.conn.query.sync model_data.conn, builder.update().into(model_data.table).set(object_data.data_build).where(object_data.data_resource).build()
+									object_data.data_build.id = object_data.data_resource.id
+								catch
+									throw _error
 							else if type is 'update' and object_data.query?
 								build_query.update object_data.data_build
 
@@ -533,10 +537,15 @@ class model extends Middleware
 					when 'get'
 						# object_data.is_one = true
 						return ->
-							build_query.filter.apply build_query, arguments
+							try
+								l = build_query.filter.apply(build_query, arguments).length
+							catch
+								throw _error
 
-							if build_query.length isnt 1
-								throw new Error "Model: Error 'get' function should return 1 row, result: #{object_data.result_length}"
+							if l isnt 1
+								err = new Error "Model: Error 'get' function should return 1 row, result: #{object_data.result_length}"
+								err.code = ObjectDoesNotExist
+								throw err
 
 							return build_query
 
