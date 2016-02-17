@@ -13,12 +13,12 @@ class bodyparser extends Middleware
 	@formidable: require(path.resolve "#{__dirname}/../../../../core/Formidable").IncomingForm
 
 	__init: () ->
-		bodyparser.form = new bodyparser.formidable
+
 
 	__middle: ($req, $wait) ->
 		if $req.method.toLowerCase() == 'post'
 			
-			# form_parse = bodyparser.form.parse.sync bodyparser.form, $req
+			bodyparser.form = new bodyparser.formidable
 			form_parse = $wait.forMethod bodyparser.form, 'parse', $req
 			$req.files = form_parse[1]
 			$req.body = form_parse[0]
