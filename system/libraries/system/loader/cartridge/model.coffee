@@ -397,9 +397,12 @@ class model extends Middleware
 					object_data.data_build = result[0]
 
 		check_field = (value) ->
-			if value and typeof value is 'object' and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
-				return value.id
-			else
+			try
+				if value and typeof value is 'function' and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
+					return value.id
+				else
+					return value
+			catch
 				return value
 
 		build_query_array = ->
@@ -441,8 +444,7 @@ class model extends Middleware
 							__defaults = util._extend {}, build.defaults ? {}
 							delete __build.defaults if __build.defaults
 							try
-								build_query.get(__build)
-								ret = build_query
+								ret = build_query.get(__build)
 							catch
 								if _error.code is ObjectDoesNotExist
 									for i, v of __build
@@ -461,9 +463,8 @@ class model extends Middleware
 							__defaults = util._extend {}, build.defaults ? {}
 							delete __build.defaults if __build.defaults
 							try
-								a = build_query.get(__defaults)
-								a.update(__build)
-								ret = build_query
+								ret = build_query.get(__defaults)
+								ret.update(__build)
 							catch
 								if _error.code is ObjectDoesNotExist
 									for i, v of __build
