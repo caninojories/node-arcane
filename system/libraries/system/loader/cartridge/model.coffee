@@ -352,8 +352,72 @@ class model extends Middleware
 
 			condition.push ['where', args]
 
-	@build_query_model: (model_data, builder, object, resource, model_list) ->
-		type = if object? then 'create' else 'update'
+	@check_field = (value) ->
+		try
+			if value and typeof value is 'function' and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
+				return value.id
+			else
+				return value
+		catch
+			return value
+
+	@build_query_array = ->
+		if arguments.length is 1
+			model.qparam_builder @model_data, @builder, arguments[0], @data_query, @model_list, @exclude
+		else if arguments.length > 1
+			__or = []
+
+			for i in arguments
+				old_length = @data_query.length
+				model.qparam_builder @model_data, @builder, i, @data_query, @model_list, @exclude
+
+				__query = @data_query.slice(0)
+				__removed_query = 0
+
+				for j in [old_length...@data_query.length] when __query[j][0] is 'where'
+					if typeof __query[j][1][0] is 'object'
+						__or.push __query[j][1][0]
+					else
+						console.log __query[j]
+
+					@data_query.splice j - __removed_query, 1
+					__removed_query++
+
+			@data_query.push ['where', [or: __or]]
+
+	@update_rows = (return_query, object_data, builder, model_data, model_list) ->
+		if object_data.query? and object_data.data_rows.length is 0
+			query = builder.select().from(model_data.table)
+			for i in object_data.query
+				query = query[i[0]].apply query, i[1]
+
+			if return_query
+				return query.build()
+
+			try
+				model.init_connection.sync null, model_data
+			catch err
+				console.log err.stack ? err
+
+			try
+				result = model_data.conn.query.sync model_data.conn, query.build()
+			catch
+				# console.log err.stack ? err
+				throw _error
+
+			object_data.result_length = result.length
+
+			# if object_data.is_one and result.length isnt 1
+			# 	throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
+
+			for i in result
+				object_data.data_rows.push model.build_query_model null, model_data, builder, i, {id: i.id}, model_list
+
+			if object_data.data_rows.length isnt 0
+				object_data.data_build = result[0]
+
+	@build_query_model: (chain_query, model_data, builder, object, resource, model_list) ->
+		type = if object? and not chain_query then 'create' else 'update'
 
 		object_data = {
 			is_one: false
@@ -361,75 +425,9 @@ class model extends Middleware
 			data_resource: resource ? {}
 			data_rows: []
 			data_condition: {}
-			query: null
+			query: chain_query ? null
 			result_length: 0
 		}
-
-		update_rows = (return_query) ->
-			if object_data.query? and object_data.data_rows.length is 0
-				query = builder.select().from(model_data.table)
-				for i in object_data.query
-					query = query[i[0]].apply query, i[1]
-
-				if return_query
-					return query.build()
-
-				try
-					model.init_connection.sync null, model_data
-				catch err
-					console.log err.stack ? err
-
-				try
-					result = model_data.conn.query.sync model_data.conn, query.build()
-				catch
-					# console.log err.stack ? err
-					throw _error
-
-				object_data.result_length = result.length
-
-				# if object_data.is_one and result.length isnt 1
-				# 	throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
-
-				for i in result
-					object_data.data_rows.push model.build_query_model model_data, builder, i, {id: i.id}, model_list
-
-				if object_data.data_rows.length isnt 0
-					object_data.data_build = result[0]
-
-		check_field = (value) ->
-			try
-				if value and typeof value is 'function' and Object.getOwnPropertyDescriptor(value, 'information')?.value is '_ARC__MODEL_'
-					return value.id
-				else
-					return value
-			catch
-				return value
-
-		build_query_array = ->
-			if arguments.length is 1
-				model.qparam_builder model_data, builder, arguments[0], object_data.query, model_list, @.exclude
-			else if arguments.length > 1
-				__or = []
-
-				for i in arguments
-					old_length = object_data.query.length
-					model.qparam_builder model_data, builder, i, object_data.query, model_list, @.exclude
-
-					__query = object_data.query.slice(0)
-					__removed_query = 0
-
-					for j in [old_length...object_data.query.length] when __query[j][0] is 'where'
-						if typeof __query[j][1][0] is 'object'
-							__or.push __query[j][1][0]
-						else
-							console.log __query[j]
-
-						object_data.query.splice j - __removed_query, 1
-						__removed_query++
-
-				object_data.query.push ['where', [or: __or]]
-
-			object_data.data_rows = []
 
 		build_query = harmonyProxy (->), {
 			get: (target, name) ->
@@ -478,20 +476,18 @@ class model extends Middleware
 
 					when 'latest'
 						return (field_date)->
-
-							#return latest data
+							return build_query.order_by(field_date)
 
 					when 'earliest'
 						return (field_date)->
-
-							#return latest data
+							return build_query.order_by("-#{field_date}")
 
 					when 'create'
 						return (build) ->
 							d = {}
 							for x, y of build
-								d[x] = check_field y
-							r = model.build_query_model model_data, builder, d, null, model_list
+								d[x] = model.check_field y
+							r = model.build_query_model null, model_data, builder, d, null, model_list
 							do r.save
 							return r
 
@@ -526,29 +522,33 @@ class model extends Middleware
 					when 'filter'
 						object_data.query = [] unless object_data.query?
 						return ->
-							build_query_array.apply {exclude: false}, arguments
-							return build_query
+							tmp_query = object_data.query.slice(0)
+							model.build_query_array.apply {exclude: false, data_query: tmp_query, model_data: model_data, model_list: model_list, builder: builder}, arguments
+							# object_data.data_rows = []
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
 
 					when 'exclude'
 						object_data.query = [] unless object_data.query?
 						return ->
-							build_query_array.apply {exclude: true}, arguments
-							return build_query
+							tmp_query = object_data.query.slice(0)
+							model.build_query_array.apply {exclude: true, data_query: tmp_query, model_data: model_data, model_list: model_list, builder: builder}, arguments
+							# object_data.data_rows = []
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
 
 					when 'get'
 						# object_data.is_one = true
 						return ->
 							try
-								l = build_query.filter.apply(build_query, arguments).length
+								l = build_query.filter.apply(build_query, arguments)
 							catch
 								throw _error
 
-							if l isnt 1
-								err = new Error "Model: Error 'get' function should return 1 row, result: #{object_data.result_length}"
+							if l.length isnt 1
+								err = new Error "Model: Error 'get' function should return 1 row, result: #{l.length}"
 								err.code = ObjectDoesNotExist
 								throw err
 
-							return build_query
+							return l
 
 					when 'all'
 						object_data.query = []
@@ -578,7 +578,7 @@ class model extends Middleware
 							d = {}
 
 							for x, y of new_data
-								d[x] = check_field y
+								d[x] = model.check_field y
 
 							query = builder.update().into(model_data.table).set(d)
 							for i in object_data.query
@@ -598,64 +598,85 @@ class model extends Middleware
 					when 'order_by'
 						object_data.query = [] unless object_data.query?
 						return (field) ->
-							if field[0] is '-'
-								object_data.query.push ['order', [field.replace(/^\-/g, ''), 'Z']]
-							else
-								object_data.query.push ['order', [field, 'A']]
+							tmp_query = object_data.query.slice(0)
 
-							return build_query
+							if field[0] is '-'
+								tmp_query.push ['order', [field.replace(/^\-/g, ''), 'Z']]
+							else
+								tmp_query.push ['order', [field, 'A']]
+
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
 
 					when 'count'
 						object_data.query = [] unless object_data.query?
 						return ->
-							object_data.query.push ['count', arguments]
-							return build_query
+							tmp_query = object_data.query.slice(0)
+							tmp_query.push ['count', arguments]
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
 
 					when 'length'
-						do update_rows
+						model.update_rows false, object_data, builder, model_data, model_list
 						return object_data.data_rows.length
 
 					when 'query'
-						return update_rows true
+						return model.update_rows true, object_data, builder, model_data, model_list
 
 					when 'toString', 'valueOf'
 						return ->
 							if typeof model_data.__unicode__ is 'function'
 								return String model_data.__unicode__.apply build_query, []
 							else
-								do update_rows
-								return JSON.stringify object_data.data_rows
+								model.update_rows false, object_data, builder, model_data, model_list
+								if object_data.data_rows.length is 0
+									return 'null'
+								else if object_data.data_rows.length is 1
+									tmp = {}
+									for i, v of model_data.attributes
+										tmp[i] = object_data.data_rows[0][i]
+									return JSON.stringify(tmp, null, 4).replace(/\"([^"]+)\":/g,"$1:").replace(/\uFFFF/g,"\\\"")
+								else
+									tmp = []
+									for i in object_data.data_rows
+										tmp.push i.toJSON()
+									return "[#{tmp.join ', '}]"
 							# return 'EMPTY STRING'
 
 					when 'slice'
 						return ->
-							object_data.query.push ['offset', [arguments[0]]]
+							tmp_query = object_data.query.slice(0)
+							tmp_query.push ['offset', [arguments[0]]]
 							if arguments[1]?
-								object_data.query.push ['limit', [arguments[1] - 1]]
-							return build_query
+								tmp_query.push ['limit', [arguments[1] - 1]]
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
 
 					when 'exists'
 						return ->
 							return build_query.length isnt 0
 
+					when 'values_list'
+						return (field, options) ->
+
+							return []
+
 					when 'aggregate'
 						object_data.query = [] unless object_data.query?
 						return ->
+							tmp_query = object_data.query.slice(0)
 							parse_val = (value, func, alias, set_alias) ->
 								args = []
 								for x, v of value
 									if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
-										object_data.query.push [func, []]
+										tmp_query.push [func, []]
 										parse_val(v.val, target_func, "#{alias}__#{target_func}", set_alias)
 										break
 									else
 										args.push v
 
 								if not target_func and args.length isnt 0
-									object_data.query.push [func, args]
-									object_data.query.push ['as', [set_alias ? "#{args[0]}__#{alias}"]]
+									tmp_query.push [func, args]
+									tmp_query.push ['as', [set_alias ? "#{args[0]}__#{alias}"]]
 								else if not target_func and args.length is 0
-									object_data.query.push [func, [null, alias]]
+									tmp_query.push [func, [null, alias]]
 
 							if arguments.length is 1
 								if typeof arguments[0] is 'object' and not Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
@@ -673,7 +694,11 @@ class model extends Middleware
 										parse_val(i.val, target_func, target_func)
 									else
 										throw new Error 'Not a valid aggregate function.'
-							return build_query
+							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+
+					when 'toJSON'
+						return ->
+							return "< #{model_data.table} >"
 
 					else
 						if not isNaN(parseFloat(name)) and isFinite(name)
@@ -681,10 +706,10 @@ class model extends Middleware
 						else if regex = /^___queryset_get_([0-9]+?)$/g.exec(name)
 							return object_data.data_rows[regex[1]]
 						else if name isnt 'constructor'
-							do update_rows
+							model.update_rows false, object_data, builder, model_data, model_list
 
 							if typeof model_data.attributes[name] is 'object' and model_data.attributes[name].model? and model_list[model_data.attributes[name].model]?
-								r = model.build_query_model model_list[model_data.attributes[name].model], builder, null, null, model_list
+								r = model.build_query_model null, model_list[model_data.attributes[name].model], builder, null, null, model_list
 								return r.filter(id: object_data.data_build[name])
 
 							# condition for manytomany
@@ -692,7 +717,6 @@ class model extends Middleware
 							if object_data.data_build[name]?
 								return object_data.data_build[name]
 							else
-								# console.log name
 								return null
 						else
 							console.info name
@@ -701,7 +725,7 @@ class model extends Middleware
 
 			set: (target, name, value) ->
 				if model_data.attributes[name]?
-					object_data.data_build[name] = check_field value
+					object_data.data_build[name] = model.check_field value
 
 			apply: (target, thisArg, argumentsList) ->
 
@@ -712,7 +736,7 @@ class model extends Middleware
 					return {configurable: true, enumerable: true}
 
 			enumerate: (target) ->
-				do update_rows
+				model.update_rows false, object_data, builder, model_data, model_list
 				return ("___queryset_get_#{x}" for x in [0...object_data.data_rows.length])
 		}
 
@@ -734,12 +758,12 @@ class model extends Middleware
 							switch do name.toLowerCase
 								when 'objects'
 									query_b = new model.Query.Query dialect: target_model.conn.dialect
-									return model.build_query_model target_model, query_b, null, null, model.global_model[$root]
+									return model.build_query_model null, target_model, query_b, null, null, model.global_model[$root]
 								else
 									# console.log name
 									if typeof target_model[name] is 'function'
 										query_b = new model.Query.Query dialect: target_model.conn.dialect
-										db = model.build_query_model target_model, query_b, null, null, model.global_model[$root]
+										db = model.build_query_model null, target_model, query_b, null, null, model.global_model[$root]
 										return ->
 											target_model[name].apply db, arguments
 
@@ -749,7 +773,7 @@ class model extends Middleware
 						apply: (target, thisArg, argumentsList) ->
 							query_b = new model.Query.Query dialect: target_model.conn.dialect
 							# tmp = query_b.insert().into(target_model.table).set argumentsList[0]
-							return model.build_query_model target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root]
+							return model.build_query_model null, target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root]
 					}
 
 				else
