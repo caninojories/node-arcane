@@ -47,4 +47,3 @@ class controller extends Middleware
 		delete controller.list[root][do name.toLowerCase]
 
 	@list: {}
-		

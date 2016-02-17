@@ -59,8 +59,8 @@ class Core extends core.WObject
 
 					monitor.on 'change', (changes) ->
 						# console.log __arc_engine.vhost[i].DocumentRoot, changes.modifiedFiles
-						# 
-						
+						#
+
 						# console.log changes
 
 						if changes.modifiedFiles.length isnt 0
@@ -80,7 +80,7 @@ class Core extends core.WObject
 
 							# if (global.import_tree[target_file]?.length ? 0) isnt 0
 							# 	Core.log global.import_tree[target_file]
-							
+
 						for j in changes.removedFiles
 							if global.import_tree and global.import_tree[j] and global.import_tree[j].length isnt 0
 								Core.log "Warning for #{j} required: ", "\n\t#{global.import_tree[j].join '\n\t'}\n--"
@@ -91,7 +91,7 @@ class Core extends core.WObject
 						# 		changes.addedFiles.push k
 
 						# console.log global.import_tree
-						
+
 						# console.log changes
 
 						process.send name: 're-update', data: changes, root: __arc_engine.vhost[index].DocumentRoot
@@ -102,7 +102,7 @@ class Core extends core.WObject
 
 		# process.on 'message', (data) ->
 		# 	if data is 'reset-arce' then do process.exit
-		 	
+
 		process.on 'message', (data) ->
 			if typeof data is 'object' and data.name? and data.name is 're-update'
 				######################################################################################################################################
@@ -176,9 +176,9 @@ class Core extends core.WObject
 							result = /models\/(.+?).coffee/g.exec j
 							Core.modules_list['model'].__onCreated data.root, result[1], j, (Core.loaded_modules['connector'] ? {}), (data.primary ? false)
 
-				# catch err
-				# 	console.log err.stack || err
-				
+				catch
+					console.log _error.stack ? String _error
+
 
 				do gc
 
@@ -223,7 +223,7 @@ class Core extends core.WObject
 				Core.modules_list[module] = c_cartridge
 			else continue
 
-		
+
 	@load_modules: (modules, callback) ->
 		# Core.synchro ->
 		wait.launchFiber ->
@@ -246,7 +246,7 @@ class Core extends core.WObject
 						Core.nmodules[module_name] = c_cartridge
 						Core.loaded_modules[module_name] = c_cartridge.__init.apply c_cartridge, param_result
 						result.push Core.loaded_modules[module_name]
-							
+
 					else
 						result.push null
 
@@ -257,7 +257,3 @@ class Core extends core.WObject
 		# , (err, result) ->
 		# 	if err then throw err
 		# 	callback err, result
-
-
-
-

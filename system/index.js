@@ -69,14 +69,13 @@ Object.defineProperty(global, '__require', {
         var current_dir = path.dirname(current_file) + '/';
         return function(fname, options) {
 
-
             var path = require('path');
             if (!fs.existsSync(fname) && fs.existsSync(fname + '.coffee')) {
                 fname += '.coffee';
             } else if (!fs.existsSync(fname) && fs.existsSync(fname + '.js')) {
                 fname += '.js';
             }
-            
+
             if(/libraries/g.test(fname) && !/\.\.\//g.test(fname)) {
                 if(!global.import_tree[fname]) {
                     global.import_tree[fname] = [];
@@ -87,7 +86,6 @@ Object.defineProperty(global, '__require', {
             }
 
             var perfect_url = path.resolve(fname);
-
             var stats;
 
             if(fs.existsSync(fname)) {
@@ -367,7 +365,7 @@ var ClusterServer = {
                         _log('Server Worker Loaded...');
                     });
 
-                    
+
                 } catch(err) {
                     _log(err.stack || err);
                 }
@@ -381,5 +379,3 @@ var ClusterServer = {
 };
 
 ClusterServer.start();
-
-
