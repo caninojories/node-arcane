@@ -25,7 +25,7 @@ class Middleware extends core.WObject
 	@sqli: require 'sqli'
 	@sqlite: Middleware.sqli.getDriver 'sqlite'
 	@log: console.log
-	@process: 
+	@process:
 		events: new events.EventEmitter()
 		events_on: {}
 	@paramCache: {}
@@ -36,7 +36,7 @@ class Middleware extends core.WObject
 	# 	if @__middle?
 	# 		Middleware.list[@name] = @
 
-		
+
 	init: (@name) ->
 		if @__middle?
 			Middleware.list[@name] = @
@@ -47,7 +47,7 @@ class Middleware extends core.WObject
 	set: (name, value) ->
 
 
-	@app: (handlers, loaded) -> 
+	@app: (handlers, loaded) ->
 		{
 			use: (call, callback, handler) ->
 				param_results = params.get call
@@ -67,12 +67,12 @@ class Middleware extends core.WObject
 			$config = loaded['config'].all 'route'
 			if $config[404]?
 				$view.render $config[404], { __status: 404 }, true
-			else 
+			else
 				handlers.$res.writeHead 404
 				handlers.$res.end '404 error'
 				Middleware.log 'Not Found Request: ', handlers.$req.url
 				Middleware.log handlers.$req.headers
-		else 
+		else
 			handlers.$res.writeHead 404
 			handlers.$res.end '404 error'
 			Middleware.log 'Not Found Request: ', handlers.$req.url
@@ -109,10 +109,10 @@ class Middleware extends core.WObject
 				# console.log middle_class.name
 
 				result.push loaded[cartridge_name] = middle_class.__middle.apply middle_class, param_data
-			else 
+			else
 				result.push {}
 
-			
+
 
 		return result
 
@@ -122,7 +122,7 @@ class Middleware extends core.WObject
 	# 	handle = name if typeof name is 'function'
 
 	# 	# if typeof name isnt 'string' and handle
-			
+
 
 	# @apply: (name, handler) ->
 
@@ -147,6 +147,9 @@ class Middleware extends core.WObject
 			clearTimeout timeout_handler
 
 		res.on 'close', ->
+			clearTimeout timeout_handler
+
+		req.__response = ->
 			clearTimeout timeout_handler
 
 		try
@@ -233,9 +236,9 @@ class Middleware extends core.WObject
 			# Middleware.use '$req', req
 			# Middleware.use '$res', res
 			# Middleware.use '$fib', fib
-			
+
 			# Middleware.use ($req, $res, $fib) ->
-			# 	
+			#
 			# 	return 'testing'
 
 
@@ -275,7 +278,7 @@ class Middleware extends core.WObject
 			# console.log req.root
 			# res.send '<img src="http://localhost:8222/favicon.ico" />'
 
-			
+
 			throw 404
 		catch err
 			if typeof err is 'string' or typeof err is 'number'
@@ -284,7 +287,7 @@ class Middleware extends core.WObject
 				if err not in Middleware.type
 					unless res.finished
 						if /\<fieldset\s/g.test err
-							try 
+							try
 								$config = app.loaded.$config.all 'route'
 								if $config[500]?
 									app.loaded.$view.render $config[500], { __status: 500, error_msg: err, is_normalize: true }, true
@@ -300,12 +303,12 @@ class Middleware extends core.WObject
 										$config = app.loaded.$config.all 'route'
 										if $config[404]?
 											app.loaded.$view.render $config[404], { __status: 404 }, true
-										else 
+										else
 											res.statusCode = 404
 											res.send '404 error'
 											Middleware.log 'Not Found Request: ', req.url
 											Middleware.log handlers.$req.headers
-									else 
+									else
 										res.statusCode = 404
 										res.end '404 error'
 										Middleware.log 'Not Found Request: ', req.url
@@ -314,7 +317,7 @@ class Middleware extends core.WObject
 								when 500
 									res.statusCode = 500
 									res.end "500 error \n#{err.stack}"
-								
+
 				# res.statusCode = 500
 				# res.end err.stack ? err
 			else
@@ -356,7 +359,7 @@ class Middleware extends core.WObject
 		# t = process.hrtime()
 
 		# # Middleware.synchro ->
-		# try 
+		# try
 		# 	handlers = {
 		# 		$req: req
 		# 		$res: res
@@ -398,10 +401,10 @@ class Middleware extends core.WObject
 		# 			if err is 'stream'
 		# 				# req.on 'end', ->
 		# 					# console.log 'Streaming... [DONE]'
-							
+
 		# 			else if /\<fieldset\s/g.test err
 		# 				Middleware.display_500 err, true, loaded, handlers
-		# 			else 
+		# 			else
 		# 				Middleware.log "Request: [http://#{req.headers.host}#{req.url}]\n #{err}" if err isnt 'done' and err isnt 'assets' and err isnt 'redirect'
 		# 		else if err.constructor.name is 'Array'
 		# 			if err[0] is 404 then Middleware.display_404 handlers, loaded
@@ -429,7 +432,7 @@ class Middleware extends core.WObject
 
 	@events: (http) ->
 
-	
+
 	@http: (http_server)->
 		# Middleware.log 'Initialize Server Socket'
 		# WebSocket = require(path.resolve "#{__dirname}/../../../node_modules/websocket").server

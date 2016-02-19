@@ -2,6 +2,27 @@ package export Model
 
 class Model
 
+	@fieldOneToOne: (table) ->
+		createSpecialObject {
+			model: table
+		}, 'one_to_one'
+
+	@fieldOneToMany: (table, field) ->
+		createSpecialObject {
+			collection: table
+			via: field
+		}, 'one_to_many'
+
+
+	@fieldManyToMany: (table) ->
+		createSpecialObject {
+			collection: table
+			via: 'id'
+		}, 'many_to_many'
+
+	@fieldEnumerate: ->
+
+
 	@Abs:			-> createSpecialObject { val: arguments }, 'abs'
 	@Ceil:		-> createSpecialObject { val: arguments }, 'ceil'
 	@Floor:		-> createSpecialObject { val: arguments }, 'floor'

@@ -37,7 +37,7 @@ class assets extends Middleware
 				request_file = path.resolve "#{$req.root}/assets/favicon.ico"
 			else
 				request_file = path.resolve "#{__dirname}/../../../../extra/assets/favicon.ico"
-		else 
+		else
 			request_file = "#{$req.root}/assets#{$req.url.split('?')[0]}"
 		#p = require(__dirname + '/../core/ua-parser')
 
@@ -46,7 +46,7 @@ class assets extends Middleware
 			# $res.end 'tst'
 
 			# throw 'assets'
-			
+
 			# if $req._timeoutProcess
 			# 	clearTimeout $req._timeoutProcess
 			# 	$req._timeoutProcess = null
@@ -57,7 +57,7 @@ class assets extends Middleware
 			throw 'assets'
 
 		false
-		
+
 	###
 	# Private functions and variables
 	###
@@ -274,6 +274,7 @@ class assets extends Middleware
 			#self.emit('end');
 			#res.send(res.statusCode);
 			return
+		do req.__response
 		return
 
 	@_destroy: (stream) ->

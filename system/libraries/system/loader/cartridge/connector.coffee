@@ -27,14 +27,14 @@ class connector extends Middleware
 					if fs.existsSync adapter
 						adapter_drv = __require adapter
 						if adapter_drv.name?
-							adapter_drv::prefix = "#{options.prefix or 'tbl'}_"
 							adapter_drv::generateFields = connector.generateFields
 							adapter_drv::field_mapping = connector.field_mapping
 							adapter_drv::field_diff = connector.field_diff
 							adapter_drv::primary_field_diff = connector.primary_field_diff
-							
+
 							tmp_func = (adapdrv, opt) ->
 								cl_driver = new adapdrv
+								cl_driver.prefix = "#{if opt.hasOwnProperty('prefix') then opt.prefix else 'tbl_'}"
 
 								cl_driver.$ = (callback) ->
 									cl_driver.$ = null
@@ -62,7 +62,7 @@ class connector extends Middleware
 								# 	return
 
 							connector.list_config[root][connection] = tmp_func adapter_drv, options
-				
+
 					else console.log "ERROR: Connector adapter '#{adapter}' not found."
 
 		for value in $vhost
@@ -73,12 +73,12 @@ class connector extends Middleware
 			if $config[value]?
 				init_connections value, $config[value]['connector']
 
-				
+
 
 		Object.defineProperty global, 'Enumerate', get: ->
 			class Enumerate
 			->
-				ret = 
+				ret =
 					type: Enumerate
 					size: ''
 				tmp_length = []
@@ -102,7 +102,7 @@ class connector extends Middleware
 
 	__socket: ($req) ->
 		return connector.list_config[$req.root]
-		
+
 	###
 	# Private function and variables
 	###
@@ -263,13 +263,19 @@ class connector extends Middleware
 						throw new Error 'Can\'t initialize field \'' + i + '\', model \'' + data[i].model + '\' is not found.'
 				else if typeof data[i] == 'object' and data[i].collection and data[i].via
 					if model_list[data[i].collection]
-						if model_list[data[i].collection].attributes[data[i].via]
-							if typeof model_list[data[i].collection].attributes[data[i].via] == 'function'
+						if model_list[data[i].collection].attributes[data[i].via] or data[i].via is 'id'
+
+							# create table for relational here.
+							# console.log typeof model_list[data[i].collection].attributes[data[i].via]
+
+							if typeof model_list[data[i].collection].attributes[data[i].via] in ['function', 'object']
 								_type = (new (model_list[data[i].collection].attributes[data[i].via])).constructor.name
-								if typeof @types[_type] != 'undefined'
+								if typeof @types[_type] isnt 'undefined'
 									fields.push i + ' ' + @types[_type].type + connector.field_extender.call(this, i, @types[_type])
 								else
 									throw new Error '#4 Invalid type of \'' + _type + '\'.'
+							else if data[i].via is 'id'
+								fields.push i + ' ' + @types['Number'].type + connector.field_extender.call(this, i, @types['Number'])
 							else
 								throw new Error '#5 Invalid type in \'' + i + '\'.'
 						else
@@ -280,6 +286,6 @@ class connector extends Middleware
 				else
 					throw new Error 'Unknown type of field \'' + i + '\'. >> ', data[i]
 					return false
-		fields.push 'date_modified ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
-		fields.push 'date_added ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
+		# fields.push 'date_modified ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
+		# fields.push 'date_added ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
 		fields
