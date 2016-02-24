@@ -425,6 +425,7 @@ class model extends Middleware
 				console.info err.stack ? err
 
 			try
+				# console.info query.build()
 				result = model_data.conn.query.sync model_data.conn, query.build()
 			catch
 				throw _error
@@ -442,7 +443,6 @@ class model extends Middleware
 					object_data.data_build[i] = v
 
 	@build_query_model: (chain_query, model_data, builder, object, resource, model_list) ->
-		type = if object? and not chain_query then 'create' else 'update'
 
 		object_data = {
 			is_one: false
@@ -452,6 +452,7 @@ class model extends Middleware
 			data_condition: {}
 			query: chain_query ? null
 			result_length: 0
+			type: if object? and not chain_query then 'create' else 'update'
 		}
 
 		unless model_data.__proxy
@@ -463,7 +464,7 @@ class model extends Middleware
 					switch name
 						when 'get_or_create'
 							@objects.data_rows = []
-							return (build)->
+							return (build) ->
 								is_created = false
 								__build = util._extend {}, build
 								__defaults = util._extend {}, build.defaults ? {}
@@ -483,7 +484,7 @@ class model extends Middleware
 
 						when 'update_or_create'
 							@objects.data_rows = []
-							return (build)->
+							return (build) ->
 								is_created = false
 								__build = util._extend {}, build
 								__defaults = util._extend {}, build.defaults ? {}
@@ -492,6 +493,7 @@ class model extends Middleware
 									ret = self.get(target, 'get') __defaults
 									ret.update(__build)
 								catch
+									# console.info _error.stack ? _error
 									if _error.code is ObjectDoesNotExist
 										for i, v of __build
 											__defaults[i] = v
@@ -533,7 +535,7 @@ class model extends Middleware
 									model.init_connection.sync null, self.params.model_data
 								catch err
 									console.log err.stack ? err
-								if type is 'create'
+								if self.objects.type is 'create'
 									try
 										self.objects.data_resource = {}
 										self.objects.query = [] unless self.objects.query?
@@ -542,14 +544,14 @@ class model extends Middleware
 										self.objects.query.push ['where', [{'id': self.objects.data_resource.id}]]
 									catch
 										throw _error
-									type = 'update'
-								else if type is 'update' and self.objects.data_resource?.id?
+									self.objects.type = 'update'
+								else if self.objects.type is 'update' and self.objects.data_resource?.id?
 									try
 										self.params.model_data.conn.query.sync self.params.model_data.conn, builder.update().into(self.params.model_data.table).set(self.objects.data_build).where(self.objects.data_resource).build()
 										self.objects.data_build.id = self.objects.data_resource.id
 									catch
 										throw _error
-								else if type is 'update' and self.objects.query?
+								else if self.objects.type is 'update' and self.objects.query?
 									self.get(target, 'update') self.objects.data_build
 
 						when 'filter'

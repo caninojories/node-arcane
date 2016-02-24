@@ -153,6 +153,7 @@ class Middleware extends core.WObject
 			clearTimeout timeout_handler
 
 		try
+			req.events = new events()
 			app = new app
 
 			# req.setTimeout 5000, ->
@@ -283,6 +284,8 @@ class Middleware extends core.WObject
 		catch err
 			if typeof err is 'string' or typeof err is 'number'
 				clearTimeout timeout_handler
+				req.events.emit err
+				req.events.emit 'request-complete'
 
 				if err not in Middleware.type
 					unless res.finished

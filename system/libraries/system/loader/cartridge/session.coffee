@@ -4,8 +4,11 @@ import system.Middleware
 
 import path
 import crypto
+import util
 
 import tools.wait
+
+import harmony-proxy
 
 class session extends Middleware
 
@@ -45,7 +48,7 @@ class session extends Middleware
 
 			# $res.setHeader 'Set-Cookie', 'ArcEngine=' + $req.sessionID
 
-		
+
 
 		# if Object.keys($cookies.list).length == 0 or typeof $cookies.list['ArcEngine'] is 'undefined'
 		# 	shasum = crypto.createHash('sha1', 'd8aae46eba9976b0cbb399444e710f4b')
@@ -62,17 +65,34 @@ class session extends Middleware
 				$app.use http.sessionMiddleWare, (err, result) ->
 					console.log err.stack ? err if err
 					# callback null, self.initSessionData($req, $res, $connector, $config)
-					if result?.set? and result?.get?
-						callback null, Proxy.create {
-							get: result.get
-							set: result.set
-						}
+					tmp_data = util._extend {}, (result?.data ? {})
+					if result?.data? and result?.save?
+						d = new harmonyProxy tmp_data,  #Proxy.create {
+							get: (target, name) ->
+								if name is 'toJSON'
+									return ->
+										JSON.stringify target
+								else if name is 'valueOf'
+									return ->
+										target
+								else
+									target?[name] ? null
+
+							set: (target, name, value) ->
+								target[name] = value
+
+						if typeof result?.save is 'function'
+							$req.events.on 'request-complete', ->
+								result.save d.toJSON()
+
+						callback null, d
+						#}
 					else
 						callback null, self.initSessionData($req, $res, $connector, $config)
 		else
 			$req.session = @initSessionData $req, $res, $connector, $config
 
-		
+
 
 	__socket: ($req, $config, $app, $params) ->
 		http = $config['http']
@@ -100,7 +120,7 @@ class session extends Middleware
 				set: (proxy, name, value) ->
 					redis.set name, value, $req.sessionID
 			}
-			
+
 		if typeof http?.sessionMiddleWare is 'function'
 			self = this
 			return wait.for (callback) ->
