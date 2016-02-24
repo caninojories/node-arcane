@@ -1,6 +1,7 @@
 package export MySQL
 
 import mysql
+import util
 
 class MySQL
 
@@ -49,13 +50,14 @@ class MySQL
 
 	connect: (options, resolve) ->
 		self = this
-		properties = MySQL.obj_clone(options)
+		properties = util._extend {}, options
 		delete properties.adapter
 
-		properties.connectionLimit = properties.connectionLimit or 5
-		properties.acquireTimeout = properties.acquireTimeout or 30000
-		# console.log 'Connection Pool @:' + properties.host + '\n user:' + properties.user + '\n database:' + properties.database
+		properties.connectionLimit ?=  5
+		properties.acquireTimeout ?= 30000
+
 		self.pool = mysql.createPool(properties)
+
 		self.db =
 			query: ->
 				args = [].slice.call(arguments)
@@ -72,42 +74,85 @@ class MySQL
 				if args[cntr] and typeof args[cntr] == 'string'
 					query = args[cntr]
 					cntr--
-				self.pool.getConnection (err, connection) ->
+
+				self.pool.query query, data, (err, rows, fields) ->
 					if err
-						console.error err.stack
+						console.info err.stack ? err
+						cb err, null
 						return
-					#console.log(query, data);
 
-					connection.query query, data, (err, rows) ->
-						if err?
-							connection.release()
-							# console.log 'LAST QUERY: ' + String(query)
-							# console.log err.stack ? err
-							cb err, null
+					if /^INSERT\sINTO/g.test query
+						self.pool.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (_err, _rows, _fields) ->
+							cb null, _rows
 							return
-
-						if /^INSERT\sINTO/g.test query
-							connection.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (err, result) ->
-								connection.release()
-								if err?
-									# console.log 'LAST QUERY: ' + String(query)
-									# console.log err.stack ? err
-									cb err, null
-									return
-
-								cb null, result
-						else
-							connection.release()
-							cb null, rows
-						return
+					else
+						cb null, rows
 					return
-				return
-			close: ->
-				self.pool.end (err) ->
-					# all connections in the pool have ended
-					return
-				return
+
 		resolve null, true
+
+		# properties = MySQL.obj_clone(options)
+		# delete properties.adapter
+		#
+		# properties.connectionLimit = properties.connectionLimit or 5
+		# properties.acquireTimeout = properties.acquireTimeout or 30000
+		# # console.log 'Connection Pool @:' + properties.host + '\n user:' + properties.user + '\n database:' + properties.database
+		# self.pool = mysql.createPool(properties)
+		# self.db =
+		# 	query: ->
+		# 		args = [].slice.call(arguments)
+		# 		cntr = args.length - 1
+		# 		query = undefined
+		# 		data = undefined
+		# 		cb = undefined
+		# 		if args[cntr] and typeof args[cntr] == 'function'
+		# 			cb = args[cntr]
+		# 			cntr--
+		# 		if args[cntr] and typeof args[cntr] == 'object'
+		# 			data = args[cntr]
+		# 			cntr--
+		# 		if args[cntr] and typeof args[cntr] == 'string'
+		# 			query = args[cntr]
+		# 			cntr--
+		# 		self.pool.getConnection (err, connection) ->
+		# 			if err
+		# 				console.error err.stack
+		# 				return
+		# 			#console.log(query, data);
+		#
+		# 			connection.query query, data, (err, rows) ->
+		# 				if err?
+		# 					connection.release()
+		# 					# console.log 'LAST QUERY: ' + String(query)
+		# 					# console.log err.stack ? err
+		# 					cb err, null
+		# 					return
+		#
+		# 				if /^INSERT\sINTO/g.test query
+		# 					connection.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (err, result) ->
+		# 						connection.release()
+		# 						if err?
+		# 							# console.log 'LAST QUERY: ' + String(query)
+		# 							# console.log err.stack ? err
+		# 							cb err, null
+		# 							return
+		#
+		# 						cb null, result
+		# 				else
+		# 					connection.release()
+		# 					cb null, rows
+		# 				return
+		# 			return
+		# 		return
+		# 	close: ->
+		# 		self.pool.end (err) ->
+		# 			# all connections in the pool have ended
+		# 			return
+		# 		return
+
+
+
+		# resolve null, true
 		return
 
 	table: (table_name, data, model_list, callback) ->

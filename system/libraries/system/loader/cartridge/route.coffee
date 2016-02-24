@@ -20,7 +20,7 @@ class route extends Middleware
 			route.url_tree[config[0]] = []
 			init_routes config[0], config[1]
 			do gc
-			
+
 		init_routes = (root, routes) ->
 			for _route of routes
 				method = ''
@@ -49,41 +49,48 @@ class route extends Middleware
 
 			routes = $config[vhost]['route']
 			init_routes vhost, routes
-			
+
 
 
 	__middle: ($url, $app, $config, $req, $res, $view, $controller) ->
-		http = $config.all 'http'
+		http = util._extend {}, $config.all 'http'
 
-		exec_middle = ->
-			route.req = $req
+		if typeof http?.routeMiddleWare isnt 'function'
+			http.routeMiddleWare = ($req) ->
+				return null
 
-			loader = null
-			value = null
+		# exec_middle = ->
+		route.req = $req
 
-			if not route.url_tree[$req.root]
-				throw 404
+		loader = null
+		value = null
 
-			for router in route.url_tree[$req.root]
-				if router.method is $req.method or router.method is '*'
-					if value = router.re.exec $req.url
-						is_found = true
-						loader = util._extend {}, router
-						break
+		if not route.url_tree[$req.root]
+			throw 404
 
-			if loader?
-				route.setQueryValue $req, value, loader.re.keys
-				if loader.option.view? or loader.option.render? or typeof loader.option is 'string'
+		for router in route.url_tree[$req.root]
+			if router.method is $req.method or router.method is '*'
+				if value = router.re.exec $req.url
+					is_found = true
+					loader = util._extend {}, router
+					break
 
-					if typeof loader.option is 'string'
-						view_template = loader.option
-					else if loader.option.view?
-						view_template = loader.option.view
-					else if loader.option.render?
-						view_template = "#{$req.root}/views/#{loader.option.render}"
-					if $res.__set.hasOwnProperty 'view'
-						for i of $res.__set.view
-							view_template = view_template.replace new RegExp('\\{\\{'+i+'\\}\\}', 'g'), $res.__set.view[i]
+		if loader?
+			route.setQueryValue $req, value, loader.re.keys
+			if loader.option.view? or loader.option.render? or typeof loader.option is 'string'
+
+				if typeof loader.option is 'string'
+					view_template = loader.option
+				else if loader.option.view?
+					view_template = loader.option.view
+				else if loader.option.render?
+					view_template = "#{$req.root}/views/#{loader.option.render}"
+				if $res.__set.hasOwnProperty 'view'
+					for i of $res.__set.view
+						view_template = view_template.replace new RegExp('\\{\\{'+i+'\\}\\}', 'g'), $res.__set.view[i]
+
+				$app.use http.routeMiddleWare, (err, result) ->
+					throw err if err
 
 					if loader.option.render?
 						$view ['render', view_template, JSON.parse(JSON.stringify((loader.option.params ? {})))]
@@ -93,33 +100,40 @@ class route extends Middleware
 
 
 
-				else if loader.option.controller and loader.option.action
-					if typeof $controller[loader.option.controller]?[loader.option.action] is 'function'
-						$req.controllerName = loader.option.controller
+			else if loader.option.controller and loader.option.action
+				if typeof $controller[loader.option.controller]?[loader.option.action] is 'function'
+					$req.controllerName = loader.option.controller
+
+					$app.use http.routeMiddleWare, (err, result) ->
+						throw err if err
+
 						$app.use $controller[loader.option.controller][loader.option.action], (err, result) ->
 							throw err if err?
 							if result?.constructor.name is 'Object'
 								# $res.send $res.view.sync(null, $controller[loader.option.controller]['//view-path~'], result, true)
 								result[n] ?= v for n, v of JSON.parse(JSON.stringify(loader.option.params ? {}))
 								$view ['display', $controller[loader.option.controller]['//view-path~'], result]
+		else
+			segment = $req.url.replace(/\/+$|\/$/g, '').split '/'
+			org_url = segment.slice 0
+
+			do org_url.shift
+			do org_url.shift
+
+			if org_url.length is 0
+				org_url = 'index'
 			else
-				segment = $req.url.replace(/\/+$|\/$/g, '').split '/'
-				org_url = segment.slice 0
+				org_url = org_url.join '/'
 
-				do org_url.shift 
-				do org_url.shift 
+			if typeof $controller[segment[1]]?[org_url] is 'function'
+				$req.controllerName = segment[1]
 
-				if org_url.length is 0
-					org_url = 'index'
-				else
-					org_url = org_url.join '/'
+				func = $controller[segment[1]][org_url]
+				if func.index?
+					func = func.index
 
-				if typeof $controller[segment[1]]?[org_url] is 'function'
-					$req.controllerName = segment[1]
-
-					func = $controller[segment[1]][org_url]
-					if func.index?
-						func = func.index
+				$app.use http.routeMiddleWare, (err, result) ->
+					throw err if err
 
 					$app.use func, (err, result) ->
 						throw err if err?
@@ -127,19 +141,19 @@ class route extends Middleware
 							# $res.send $res.view.sync(null, $controller[segment[1]]['//view-path~'], result, true)
 							$view ['display', $controller[segment[1]]['//view-path~'], result]
 
-		if typeof http?.routeMiddleWare is 'function'
-			$app.use http?.routeMiddleWare, (err, result) ->
-				# console.log err.stack ? err if err
-				throw err if err
-				do exec_middle
-		else
-			do exec_middle
+		# if typeof http?.routeMiddleWare is 'function'
+		# 	$app.use http?.routeMiddleWare, (err, result) ->
+		# 		# console.log err.stack ? err if err
+		# 		throw err if err
+		# 		do exec_middle
+		# else
+		# 	do exec_middle
 
 
 
 
 
-		
+
 
 	@setQueryValue: ($req, value, keys) ->
 		if value.length > 0

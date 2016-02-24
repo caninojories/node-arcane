@@ -422,15 +422,12 @@ class model extends Middleware
 			try
 				model.init_connection.sync null, model_data
 			catch err
-				console.log err.stack ? err
+				console.info err.stack ? err
 
 			try
 				result = model_data.conn.query.sync model_data.conn, query.build()
 			catch
-				# console.log err.stack ? err
 				throw _error
-
-			object_data.result_length = result.length
 
 			# if object_data.is_one and result.length isnt 1
 			# 	throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
@@ -438,8 +435,11 @@ class model extends Middleware
 			for i in result
 				object_data.data_rows.push model.build_query_model null, model_data, builder, i, {id: i.id}, model_list
 
+			object_data.result_length = object_data.data_rows.length
+
 			if object_data.data_rows.length isnt 0
-				object_data.data_build = result[0]
+				for i, v of result[0]
+					object_data.data_build[i] = v
 
 	@build_query_model: (chain_query, model_data, builder, object, resource, model_list) ->
 		type = if object? and not chain_query then 'create' else 'update'
@@ -454,319 +454,386 @@ class model extends Middleware
 			result_length: 0
 		}
 
-		build_query = harmonyProxy (->), {
-			get: (target, name) ->
-
-				# console.info name
-
-				switch name
-					when 'get_or_create'
-						return (build)->
-							is_created = false
-							__build = util._extend {}, build
-							__defaults = util._extend {}, build.defaults ? {}
-							delete __build.defaults if __build.defaults
-							try
-								ret = build_query.get(__build)
-							catch
-								if _error.code is ObjectDoesNotExist
-									for i, v of __build
-										__defaults[i] = v
-									ret = build_query.create(__defaults)
-									is_created = true
-								else
-									throw _error
-
-							return [ret, is_created]
-
-					when 'update_or_create'
-						return (build)->
-							is_created = false
-							__build = util._extend {}, build
-							__defaults = util._extend {}, build.defaults ? {}
-							delete __build.defaults if __build.defaults
-							try
-								ret = build_query.get(__defaults)
-								ret.update(__build)
-							catch
-								if _error.code is ObjectDoesNotExist
-									for i, v of __build
-										__defaults[i] = v
-									ret = build_query.create(__defaults)
-									is_created = true
-								else
-									throw _error
-
-							return [ret, is_created]
-
-					when 'latest'
-						return (field_date)->
-							return build_query.order_by(field_date)
-
-					when 'earliest'
-						return (field_date)->
-							return build_query.order_by("-#{field_date}")
-
-					when 'create'
-						return (build) ->
-							d = {}
-							for x, y of build
-								d[x] = model.check_field y
-							r = model.build_query_model null, model_data, builder, d, null, model_list
-							do r.save
-							return r
-
-					when 'add'
-						return ->
-							console.log arguments
-
-					when 'save'
-						delete object_data.data_build.id if object_data.data_build.id?
-						return ->
-							try
-								model.init_connection.sync null, model_data
-							catch err
-								console.log err.stack ? err
-							if type is 'create'
+		unless model_data.__proxy
+			model_data.__proxy = Proxy.createFunction {
+				objects: {}
+				params: {}
+				get: (target, name) ->
+					self = this
+					switch name
+						when 'get_or_create'
+							@objects.data_rows = []
+							return (build)->
+								is_created = false
+								__build = util._extend {}, build
+								__defaults = util._extend {}, build.defaults ? {}
+								delete __build.defaults if __build.defaults
 								try
-									object_data.data_resource = {}
-									result = model_data.conn.query.sync model_data.conn, builder.insert().into(model_data.table).set(object_data.data_build).build()
-									object_data.data_resource.id = object_data.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id
+									ret = self.get(target, 'get') __build
+								catch
+									if _error.code is ObjectDoesNotExist
+										for i, v of __build
+											__defaults[i] = v
+										ret = self.get(target, 'create') __defaults
+										is_created = true
+									else
+										throw _error
+
+								return [ret, is_created]
+
+						when 'update_or_create'
+							@objects.data_rows = []
+							return (build)->
+								is_created = false
+								__build = util._extend {}, build
+								__defaults = util._extend {}, build.defaults ? {}
+								delete __build.defaults if __build.defaults
+								try
+									ret = self.get(target, 'get') __defaults
+									ret.update(__build)
+								catch
+									if _error.code is ObjectDoesNotExist
+										for i, v of __build
+											__defaults[i] = v
+										ret = self.get(target, 'create') __defaults
+										is_created = true
+									else
+										throw _error
+
+								return [ret, is_created]
+
+						when 'latest'
+							@objects.data_rows = []
+							return (field_date)->
+								return self.get(target, 'order_by') field_date
+
+						when 'earliest'
+							return (field_date)->
+								return self.get(target, 'order_by') "-#{field_date}"
+
+						when 'create'
+							@objects.data_rows = []
+							return (build) ->
+								d = {}
+								for x, y of build
+									d[x] = model.check_field y
+								r = model.build_query_model null, self.params.model_data, self.params.builder, d, null, self.params.model_list
+								do r.save
+								return r
+
+						when 'add'
+							return ->
+								console.log arguments
+
+						when 'save'
+							delete @objects.data_build.id if @objects.data_build.id?
+							@objects.data_rows = []
+							return ->
+								try
+									model.init_connection.sync null, self.params.model_data
+								catch err
+									console.log err.stack ? err
+								if type is 'create'
+									try
+										self.objects.data_resource = {}
+										self.objects.query = [] unless self.objects.query?
+										result = self.params.model_data.conn.query.sync self.params.model_data.conn, builder.insert().into(self.params.model_data.table).set(self.objects.data_build).build()
+										self.objects.data_resource.id = self.objects.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id
+										self.objects.query.push ['where', [{'id': self.objects.data_resource.id}]]
+									catch
+										throw _error
+									type = 'update'
+								else if type is 'update' and self.objects.data_resource?.id?
+									try
+										self.params.model_data.conn.query.sync self.params.model_data.conn, builder.update().into(self.params.model_data.table).set(self.objects.data_build).where(self.objects.data_resource).build()
+										self.objects.data_build.id = self.objects.data_resource.id
+									catch
+										throw _error
+								else if type is 'update' and self.objects.query?
+									self.get(target, 'update') self.objects.data_build
+
+						when 'filter'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return ->
+								tmp_query = self.objects.query.slice(0)
+								model.build_query_array.apply {exclude: false, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+
+						when 'exclude'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return ->
+								tmp_query = self.objects.query.slice(0)
+								model.build_query_array.apply {exclude: true, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+
+						when 'get'
+							@objects.data_rows = []
+							return ->
+								try
+									l = self.get(target, 'filter').apply(self, arguments)
 								catch
 									throw _error
-								type = 'update'
-							else if type is 'update' and object_data.data_resource?.id?
-								try
-									model_data.conn.query.sync model_data.conn, builder.update().into(model_data.table).set(object_data.data_build).where(object_data.data_resource).build()
-									object_data.data_build.id = object_data.data_resource.id
-								catch
-									throw _error
-							else if type is 'update' and object_data.query?
-								build_query.update object_data.data_build
 
-					when 'filter'
-						object_data.query = [] unless object_data.query?
-						return ->
-							tmp_query = object_data.query.slice(0)
-							model.build_query_array.apply {exclude: false, data_query: tmp_query, model_data: model_data, model_list: model_list, builder: builder}, arguments
-							# object_data.data_rows = []
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								if (length_data = l.length) isnt 1
+									err = new Error "Model: Error 'get' function should return 1 row, result: #{length_data}"
+									err.code = ObjectDoesNotExist
+									throw err
 
-					when 'exclude'
-						object_data.query = [] unless object_data.query?
-						return ->
-							tmp_query = object_data.query.slice(0)
-							model.build_query_array.apply {exclude: true, data_query: tmp_query, model_data: model_data, model_list: model_list, builder: builder}, arguments
-							# object_data.data_rows = []
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								return l
 
-					when 'get'
-						# object_data.is_one = true
-						return ->
-							try
-								l = build_query.filter.apply(build_query, arguments)
-							catch
-								throw _error
+						when 'all'
+							@objects.query = []
+							@objects.data_rows = []
+							return ->
+								return self.params.model_data.__proxy
 
-							if l.length isnt 1
-								err = new Error "Model: Error 'get' function should return 1 row, result: #{l.length}"
-								err.code = ObjectDoesNotExist
-								throw err
-
-							return l
-
-					when 'all'
-						object_data.query = []
-						return ->
-							return build_query
-
-					when 'delete'
-						object_data.query = [] unless object_data.query?
-						return ->
-							query = builder.remove().from(model_data.table)
-							for i in object_data.query
-								query = query[i[0]].apply query, i[1]
-
-							try
-								model.init_connection.sync null, model_data
-							catch err
-								console.log err.stack ? err
-
-							try
-								model_data.conn.query.sync model_data.conn, query.build()
-							catch err
-								console.log err.stack ? err
-
-					when 'update'
-						object_data.query = [] unless object_data.query?
-						return (new_data) ->
-							d = {}
-
-							for x, y of new_data
-								d[x] = model.check_field y
-
-							query = builder.update().into(model_data.table).set(d)
-							for i in object_data.query
-								if typeof query[i[0]] is 'function'
+						when 'delete'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return ->
+								query = self.params.builder.remove().from(self.params.model_data.table)
+								for i in self.objects.query
 									query = query[i[0]].apply query, i[1]
 
-							try
-								model.init_connection.sync null, model_data
-							catch err
-								console.log err.stack ? err
+								try
+									model.init_connection.sync null, self.params.model_data
+								catch err
+									console.log err.stack ? err
 
-							try
-								model_data.conn.query.sync model_data.conn, query.build()
-							catch err
-								console.log err.stack ? err
+								try
+									self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
+								catch err
+									console.log err.stack ? err
 
-					when 'order_by'
-						object_data.query = [] unless object_data.query?
-						return (field) ->
-							tmp_query = object_data.query.slice(0)
+						when 'update'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return (new_data) ->
+								d = {}
 
-							if field[0] is '-'
-								tmp_query.push ['order', [field.replace(/^\-/g, ''), 'Z']]
-							else
-								tmp_query.push ['order', [field, 'A']]
+								for x, y of new_data
+									d[x] = model.check_field y
 
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								query = builder.update().into(self.params.model_data.table).set(d)
+								for i in self.objects.query
+									if typeof query[i[0]] is 'function'
+										query = query[i[0]].apply query, i[1]
 
-					when 'count'
-						object_data.query = [] unless object_data.query?
-						return ->
-							tmp_query = object_data.query.slice(0)
-							tmp_query.push ['count', arguments]
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								try
+									model.init_connection.sync null, self.params.model_data
+								catch err
+									console.log err.stack ? err
 
-					when 'length'
-						model.update_rows false, object_data, builder, model_data, model_list
-						return object_data.data_rows.length
+								try
+									self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
+								catch err
+									console.log err.stack ? err
 
-					when 'query'
-						return model.update_rows true, object_data, builder, model_data, model_list
+						when 'order_by'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return (field) ->
+								tmp_query = self.objects.query.slice(0)
 
-					when 'toString', 'valueOf'
-						return ->
-							if typeof model_data.__unicode__ is 'function'
-								return String model_data.__unicode__.apply build_query, []
-							else
-								model.update_rows false, object_data, builder, model_data, model_list
-								if object_data.data_rows.length is 0
-									return 'null'
-								else if object_data.data_rows.length is 1
-									tmp = id: object_data.data_rows[0].id
-									for i, v of model_data.attributes
-										tmp[i] = object_data.data_rows[0][i]
-									return JSON.stringify(tmp, null, 4).replace(/\"([^"]+)\":/g,"$1:").replace(/\uFFFF/g,"\\\"")
+								if field[0] is '-'
+									tmp_query.push ['order', [field.replace(/^\-/g, ''), 'Z']]
 								else
-									tmp = []
-									for i in object_data.data_rows
-										tmp.push i.toJSON()
-									return "[#{tmp.join ', '}]"
-							# return 'EMPTY STRING'
+									tmp_query.push ['order', [field, 'A']]
 
-					when 'slice'
-						return ->
-							tmp_query = object_data.query.slice(0)
-							tmp_query.push ['offset', [arguments[0]]]
-							if arguments[1]?
-								tmp_query.push ['limit', [arguments[1] - 1]]
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
 
-					when 'exists'
-						return ->
-							return build_query.length isnt 0
+						when 'count'
+							@objects.query = [] unless @objects.query?
+							return ->
+								tmp_query = self.objects.query.slice(0)
+								tmp_query.push ['count', arguments]
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
 
-					when 'values_list'
-						return (field, options) ->
+						when 'length'
+							if self.objects.data_rows.length is 0
+								tmp_objects = util._extend {}, self.objects
+								model.update_rows false, tmp_objects, self.params.builder, self.params.model_data, self.params.model_list
+								self.objects.result_length = tmp_objects.result_length
+								self.objects.data_rows = tmp_objects.data_rows
+								self.objects.data_build = tmp_objects.data_build
 
-							return []
+							return self.objects.data_rows.length
 
-					when 'aggregate'
-						object_data.query = [] unless object_data.query?
-						return ->
-							tmp_query = object_data.query.slice(0)
-							parse_val = (value, func, alias, set_alias) ->
-								args = []
-								for x, v of value
-									if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
-										tmp_query.push [func, []]
-										parse_val(v.val, target_func, "#{alias}__#{target_func}", set_alias)
-										break
+						when 'query'
+							return model.update_rows true, self.objects, self.params.builder, self.params.model_data, self.params.model_list
+
+						when 'toString', 'valueOf'
+							return ->
+								if typeof self.params.model_data.__unicode__ is 'function'
+									return String self.params.model_data.__unicode__.apply self.params.model_data.__proxy, []
+								else
+									if self.objects.data_rows.length is 0
+										tmp_objects = util._extend {}, self.objects
+										model.update_rows false, tmp_objects, self.params.builder, self.params.model_data, self.params.model_list
+										self.objects.result_length = tmp_objects.result_length
+										self.objects.data_rows = tmp_objects.data_rows
+										self.objects.data_build = tmp_objects.data_build
+
+									if self.objects.data_rows.length is 0
+										return 'null'
+									else if self.objects.data_rows.length is 1
+										tmp = id: self.objects.data_rows[0].id
+										for i, v of self.params.model_data.attributes
+											tmp[i] = self.objects.data_rows[0][i]
+										return JSON.stringify(tmp, null, 4).replace(/\"([^"]+)\":/g,"$1:").replace(/\uFFFF/g,"\\\"")
 									else
-										args.push v
+										tmp = []
+										for i in self.objects.data_rows
+											tmp.push i.toJSON()
+										return "[#{tmp.join ', '}]"
 
-								if not target_func and args.length isnt 0
-									tmp_query.push [func, args]
-									tmp_query.push ['as', [set_alias ? "#{args[0]}__#{alias}"]]
-								else if not target_func and args.length is 0
-									tmp_query.push [func, [null, alias]]
+						when 'slice'
+							@objects.data_rows = []
+							return ->
+								tmp_query = self.objects.query.slice(0)
+								tmp_query.push ['offset', [arguments[0]]]
+								if arguments[1]?
+									tmp_query.push ['limit', [arguments[1] - 1]]
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
 
-							if arguments.length is 1
-								if typeof arguments[0] is 'object' and not Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
-									for i, v of arguments[0]
+						when 'exists'
+							return ->
+								return self.get(target, 'length') isnt 0
+
+						when 'values_list'
+							return (field, options) ->
+								return []
+
+						when 'aggregate'
+							@objects.query = [] unless @objects.query?
+							@objects.data_rows = []
+							return ->
+								tmp_query = self.objects.query.slice(0)
+								parse_val = (value, func, alias, set_alias) ->
+									args = []
+									for x, v of value
 										if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
-											parse_val(v.val, target_func, target_func, i)
+											tmp_query.push [func, []]
+											parse_val(v.val, target_func, "#{alias}__#{target_func}", set_alias)
+											break
+										else
+											args.push v
+
+									if not target_func and args.length isnt 0
+										tmp_query.push [func, args]
+										tmp_query.push ['as', [set_alias ? "#{args[0]}__#{alias}"]]
+									else if not target_func and args.length is 0
+										tmp_query.push [func, [null, alias]]
+
+								if arguments.length is 1
+									if typeof arguments[0] is 'object' and not Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
+										for i, v of arguments[0]
+											if typeof v is 'object' and target_func = Object.getOwnPropertyDescriptor(v, 'sql_function')?.value
+												parse_val(v.val, target_func, target_func, i)
+											else
+												throw new Error 'Not a valid aggregate function.'
+
+									else if typeof arguments[0] is 'object' and target_func = Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
+										parse_val(arguments[0].val, target_func, target_func)
+								else if arguments.length > 1
+									for i in arguments
+										if typeof i is 'object' and target_func = Object.getOwnPropertyDescriptor(i, 'sql_function')?.value
+											parse_val(i.val, target_func, target_func)
 										else
 											throw new Error 'Not a valid aggregate function.'
 
-								else if typeof arguments[0] is 'object' and target_func = Object.getOwnPropertyDescriptor(arguments[0], 'sql_function')?.value
-									parse_val(arguments[0].val, target_func, target_func)
-							else if arguments.length > 1
-								for i in arguments
-									if typeof i is 'object' and target_func = Object.getOwnPropertyDescriptor(i, 'sql_function')?.value
-										parse_val(i.val, target_func, target_func)
-									else
-										throw new Error 'Not a valid aggregate function.'
-							return model.build_query_model tmp_query, model_data, builder, null, null, model_list
+								return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
 
-					when 'toJSON'
-						return ->
-							return "< #{model_data.table} >"
+						when 'toJSON'
+							return ->
+								return "< #{self.params.model_data.table} >"
 
-					else
-						if not isNaN(parseFloat(name)) and isFinite(name)
-							return object_data.data_rows[name]
-						else if regex = /^___queryset_get_([0-9]+?)$/g.exec(name)
-							return object_data.data_rows[regex[1]]
-						else if name isnt 'constructor'
-							model.update_rows false, object_data, builder, model_data, model_list
-
-							if typeof model_data.attributes[name] is 'object' and model_data.attributes[name].model? and model_list[model_data.attributes[name].model]?
-								r = model.build_query_model null, model_list[model_data.attributes[name].model], builder, null, null, model_list
-								return r.filter(id: object_data.data_build[name])
-							else if typeof model_data.attributes[name] is 'object' and model_data.attributes[name].collection? and model_data.attributes[name].via? and model_list[model_data.attributes[name].collection]?
-								r = model.build_query_model null, model_list[model_data.attributes[name].collection], builder, null, null, model_list
-								tmp_obj = {}
-								tmp_obj[model_data.attributes[name].via] = object_data.data_build[name]
-								return r.filter(tmp_obj)
-
-							if object_data.data_build[name]?
-								return object_data.data_build[name]
-							else
-								return null
 						else
-							console.info name
-							return null
+							if not isNaN(parseFloat(name)) and isFinite(name)
+								return @objects.data_rows[name]
+							# else if regex = /^___queryset_get_([0-9]+?)$/g.exec(name)
+							# 	return @objects.data_rows[regex[1]]
+							else if name isnt 'constructor'
+								if self.objects.data_rows.length is 0
+									tmp_objects = util._extend {}, @objects
+									model.update_rows false, tmp_objects, @params.builder, @params.model_data, @params.model_list
+									@objects.result_length = tmp_objects.result_length
+									@objects.data_rows = tmp_objects.data_rows
+									@objects.data_build = tmp_objects.data_build
 
+								# console.info tmp_objects.result_length
 
+								# console.info @params.model_data.table
+								# console.info name, @objects.query, @objects.result_length
+
+								if typeof @params.model_data.attributes[name] is 'object' and @params.model_data.attributes[name].model? and @params.model_list[@params.model_data.attributes[name].model]?
+									r = model.build_query_model null, @params.model_list[@params.model_data.attributes[name].model], @params.builder, null, null, @params.model_list
+									return r.filter(id: @objects.data_build[name])
+								else if typeof @params.model_data.attributes[name] is 'object' and @params.model_data.attributes[name].collection? and @params.model_data.attributes[name].via? and @params.model_list[@params.model_data.attributes[name].collection]?
+									r = model.build_query_model null, @params.model_list[@params.model_data.attributes[name].collection], @params.builder, null, null, @params.model_list
+									tmp_obj = {}
+									tmp_obj[@params.model_data.attributes[name].via] = @objects.data_build[name]
+									return r.filter(tmp_obj)
+
+								if @objects.data_build[name]?
+									return @objects.data_build[name]
+								else
+									return null
+							else
+								# throw new Error 'Constrcutor'
+								console.log name
+								return null
+
+				set: (target, name, value) ->
+					if @params.model_data?.attributes[name]?
+						@objects.data_build[name] = model.check_field value
+					else if name is '__objects'
+						@objects = value
+					else if name is '__handler'
+						@params = value
+
+				# defineProperty: (key, desc) ->
+				# 	switch key
+				# 		when 'query_clear'
+				# 			@objects = desc.value
+				# 		when 'query_params'
+				# 			@params = desc.value
+				#
+				# 	return {}
+
+				getOwnPropertyDescriptor: (target, prop) ->
+					if prop is 'information'
+						return { configurable: true, enumerable: true, value: '_ARC__MODEL_' }
+					if prop is 'query'
+						return { configurable: true, enumerable: true, value: '_ARC__MODEL_' }
+					else
+						return {configurable: true, enumerable: true}
+
+				# enumerate: (target) ->
+				# 	model.update_rows false, @object, builder, model_data, model_list
+				# 	return ("___queryset_get_#{x}" for x in [0...@object.data_rows.length])
+
+			}, ->
+				# console.log arguments
+
+			model_data.__proxy.__handler = model_data: model_data, builder: builder, model_list: model_list
+
+		model_data.__proxy.__objects = object_data
+
+		build_query = Proxy.createFunction {
+			get: (target, name) ->
+				model_data.__proxy.__objects = object_data
+				return model_data.__proxy[name]
+				# console.log JSON.stringify object_data
+				# return d
 			set: (target, name, value) ->
-				if model_data.attributes[name]?
-					object_data.data_build[name] = model.check_field value
+				model_data.__proxy.__objects = object_data
+				model_data.__proxy[name] = value
+		}, ->
+			# console.log arguments
 
-			apply: (target, thisArg, argumentsList) ->
-
-			getOwnPropertyDescriptor: (target, prop) ->
-				if prop is 'information'
-					return { configurable: true, enumerable: true, value: '_ARC__MODEL_' }
-				else
-					return {configurable: true, enumerable: true}
-
-			enumerate: (target) ->
-				model.update_rows false, object_data, builder, model_data, model_list
-				return ("___queryset_get_#{x}" for x in [0...object_data.data_rows.length])
-		}
 
 		return build_query
 
@@ -778,13 +845,11 @@ class model extends Middleware
 
 					return harmonyProxy (->), {
 						get: (target, name) ->
-							# console.log name
 							switch do name.toLowerCase
 								when 'objects'
 									query_b = new model.Query.Query dialect: target_model.conn.dialect
 									return model.build_query_model null, target_model, query_b, null, null, model.global_model[$root]
 								else
-									# console.log name
 									if typeof target_model[name] is 'function'
 										query_b = new model.Query.Query dialect: target_model.conn.dialect
 										db = model.build_query_model null, target_model, query_b, null, null, model.global_model[$root]
@@ -796,13 +861,11 @@ class model extends Middleware
 
 						apply: (target, thisArg, argumentsList) ->
 							query_b = new model.Query.Query dialect: target_model.conn.dialect
-							# tmp = query_b.insert().into(target_model.table).set argumentsList[0]
 							return model.build_query_model null, target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root]
 					}
 
 				else
 					throw new Error "Undefined model '#{name}'."
-					# return model.virtual_model
 
 			set: (target, name, value) ->
 				if not model.model_connection_setup.hasOwnProperty $root
@@ -835,8 +898,6 @@ class model extends Middleware
 
 		if /\.coffee$/g.test mods
 			cl = __require target_file
-
-			# console.log i for i, v of cl
 
 			orm = util._extend {__proto__: cl.prototype}, {} #model.orm
 

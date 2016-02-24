@@ -10,14 +10,18 @@ class cookies extends Middleware
 
 
 	__middle: ($req) ->
-		
-		{
+		# console.log $req.get 'host'
+		port_num = $req.get('host').split ':'
+
+		ret = {
 			options:
 				maxAge: 14 * 24 * 3600000
 				domain: $req.hostname
 				path: '/'
 			get: cookies.get
 		}
+		
+		ret.options.port = port_num[1] if port_num[1]?
 
 		# ret = {}
 		# if typeof $req.headers.cookie isnt 'undefined'
@@ -34,6 +38,7 @@ class cookies extends Middleware
 		# 	list: ret
 		# }
 
+		ret
 
 	@get: ($req, name) ->
 		if header_cookies = $req.headers?.cookie
@@ -41,7 +46,7 @@ class cookies extends Middleware
 			return match?[1] ? null
 
 		null
-		
+
 	@getPattern: (name) ->
 		return cookies.cache[name] if cookies.cache[name]?
 		cookies.cache[name] = new RegExp "(?:^|;) *#{name.replace /[-[\]{}()*+?.,\\^$|#\s]/g, "\\$&"}=([^;]*)"
