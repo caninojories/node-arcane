@@ -125,11 +125,32 @@ class session extends Middleware
 			self = this
 			return wait.for (callback) ->
 				result = $app http.sessionMiddleWare, http, $params
-				if result?.set? and result?.get?
-					callback null, Proxy.create {
-						get: result.get
-						set: result.set
-					}
+				# if result?.set? and result?.get?
+				# 	callback null, Proxy.create {
+				# 		get: result.get
+				# 		set: result.set
+				# 	}
+				tmp_data = util._extend {}, (result?.data ? {})
+				if result?.data? and result?.save?
+					d = new harmonyProxy tmp_data,  #Proxy.create {
+						get: (target, name) ->
+							if name is 'toJSON'
+								return ->
+									JSON.stringify target
+							else if name is 'valueOf'
+								return ->
+									target
+							else
+								target?[name] ? null
+
+						set: (target, name, value) ->
+							target[name] = value
+
+					if typeof result?.save is 'function'
+						$req.events.on 'request-complete', ->
+							result.save d.toJSON()
+
+					callback null, d
 				else
 					callback null, do default_exec
 		else

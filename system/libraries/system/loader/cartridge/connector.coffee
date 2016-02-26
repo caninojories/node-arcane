@@ -256,11 +256,15 @@ class connector extends Middleware
 						fields.push i + ' ' + @types[type].type + connector.field_extender.call(this, i, @types[type])
 					else
 						throw new Error '#3 Invalid type of \'' + type + '\'.'
-				else if typeof data[i] == 'object' and data[i].model
-					if model_list and model_list.hasOwnProperty(data[i].model)
+				else if typeof data[i] == 'object' and Object.getOwnPropertyDescriptor(data[i], 'sql_function')?.value is 'one_to_one'
+					# console.info typeof data[i].model, typeof data[i].collection, data[i]
+					# console.info String Object.keys(model_list ? {})
+					if model_list and data[i].model in Object.keys(model_list)#model_list.hasOwnProperty(data[i].model)
 						fields.push i + ' ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
 					else
 						throw new Error 'Can\'t initialize field \'' + i + '\', model \'' + data[i].model + '\' is not found.'
+				else if typeof data[i] is 'object' and Object.getOwnPropertyDescriptor(data[i], 'sql_function')?.value is 'many_to_many'
+					continue
 				else if typeof data[i] == 'object' and data[i].collection and data[i].via
 					if model_list[data[i].collection]
 						if model_list[data[i].collection].attributes[data[i].via] or data[i].via is 'id'
@@ -288,4 +292,5 @@ class connector extends Middleware
 					return false
 		# fields.push 'date_modified ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
 		# fields.push 'date_added ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
+		# console.log fields
 		fields

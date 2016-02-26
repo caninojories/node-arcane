@@ -9,6 +9,7 @@ import path
 import crypto
 import harmony-proxy
 import tools.wait
+import events
 
 class SocketIO extends core.WObject
 
@@ -24,7 +25,7 @@ class SocketIO extends core.WObject
 			}
 
 			vhost = Core.modules['vhost']
-		
+
 			originIsAllowed = (origin) ->
 				origin = origin.replace(/http\:\/\//g, '').replace(/https\:\/\//g, '').split('/')[0]
 				unless vhost.host_map[origin]? or vhost.host_map_normal[origin]?
@@ -33,7 +34,7 @@ class SocketIO extends core.WObject
 				return true
 
 			# console.log Core.loaded_modules['vhost']
-			
+
 			socket_list = {}
 			globalTimer_list = {}
 			socket_info = {}
@@ -43,7 +44,7 @@ class SocketIO extends core.WObject
 					for socket_id, socket_data of socket_list[data.sessionID]
 						socket_data.$socket.trigger data.info.command, data.info.data
 				else if data.command? and data.command is 'globalTimer-call' and data.sessionID? and globalTimer_list[data.sessionID]?
-					if (data.func is 'clearInterval' or data.func is 'clearTimeout') and globalTimer_list[data.sessionID][data.name]? 
+					if (data.func is 'clearInterval' or data.func is 'clearTimeout') and globalTimer_list[data.sessionID][data.name]?
 						global[data.func] globalTimer_list[data.sessionID][data.name]
 						delete globalTimer_list[data.sessionID][data.name]
 				else if data.command? and data.command is 'socket-connect'
@@ -58,6 +59,7 @@ class SocketIO extends core.WObject
 
 			wsServer.on "request", (req) ->
 				# SocketIO.synchro ->
+				req.events = new events()
 				wait.launchFiber ->
 					try
 						unless originIsAllowed(req.origin)
@@ -108,7 +110,7 @@ class SocketIO extends core.WObject
 						process.send command: 'socket-connect', sessID: dparam.$req.sessionID
 
 						# console.log dparam.$req.sessionID
-						
+
 						socket_list[dparam.$req.sessionID] = {} if not socket_list[dparam.$req.sessionID]?
 
 						md5sum = crypto.createHash 'md5'
@@ -145,6 +147,7 @@ class SocketIO extends core.WObject
 									if dparam.$config.socket?.disconnect?.index?
 										SocketIO.app dparam.$config.socket.disconnect.index, dparam.$config.socket.disconnect, dparam
 
+									req.events.emit 'request-complete'
 									do gc
 								catch err
 									console.log err?.stack ? err if err
@@ -161,6 +164,7 @@ class SocketIO extends core.WObject
 										if dparam.$config?.socket?[do utf_data.command.toLowerCase]?.index?
 											dparam.$data = utf_data.data
 											SocketIO.app dparam.$config.socket[do utf_data.command.toLowerCase].index, dparam.$config.socket[do utf_data.command.toLowerCase], dparam
+											req.events.emit 'request-complete'
 								catch err
 									console.log err?.stack ? err if err
 							# , (err) ->
