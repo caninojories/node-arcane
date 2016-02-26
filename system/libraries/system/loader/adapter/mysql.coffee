@@ -80,13 +80,7 @@ class MySQL
 						console.info err.stack ? err
 						cb err, null
 						return
-
-					if /^INSERT\sINTO/g.test query
-						self.pool.query 'SELECT LAST_INSERT_ID() AS `last_insert_id`', (_err, _rows, _fields) ->
-							cb null, _rows
-							return
-					else
-						cb null, rows
+					cb null, rows
 					return
 
 		resolve null, true

@@ -549,15 +549,30 @@ class model extends Middleware
 				self.objects.data_rows = []
 				return (build) ->
 					d = {}
+					extended = {}
 					for x, y of build
-						d[x] = model.check_field y
-					r = model.build_query_model null, self.params.model_data, self.params.builder, d, null, self.params.model_list
+						if typeof y in ['array', 'object']
+							extended[x] = y
+						else
+							d[x] = model.check_field y
+					r = model.build_query_model null, self.params.model_data, self.params.builder, d, null, self.params.model_list, true
 					do r.save
+
+					for i, j of extended
+						if Object.getOwnPropertyDescriptor(r[i], 'information')?.value is '_ARC__MODEL_'
+							for k in j
+								r[i].add(k)
+
 					return r
 
 			when 'add'
-				return ->
-					console.log arguments
+				if self.objects.settings.relation?
+					return (val) ->
+						obj = {}
+						obj[self.objects.settings.target_field] = self.objects.settings.relation
+						obj[self.objects.settings.target_field2] = model.check_field val
+						self.objects.settings.target_model.create(obj)
+						return null
 
 			when 'save'
 				delete self.objects.data_build.id if self.objects.data_build.id?
@@ -572,7 +587,7 @@ class model extends Middleware
 							self.objects.data_resource = {}
 							self.objects.query = [] unless self.objects.query?
 							result = self.params.model_data.conn.query.sync self.params.model_data.conn, self.params.builder.insert().into(self.params.model_data.table).set(self.objects.data_build).build()
-							self.objects.data_resource.id = self.objects.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id
+							self.objects.data_resource.id = self.objects.data_build.id = result?[0]?.last_insert_id ? result?[0]?.id ? result.insertId
 							self.objects.query.push ['where', [{'id': self.objects.data_resource.id}]]
 						catch
 							throw _error
@@ -618,7 +633,10 @@ class model extends Middleware
 					return l
 
 			when 'all'
-				self.objects.query = []
+				if self.objects.settings.relation? and self.objects.query[0]?
+					self.objects.query = [self.objects.query[0]]
+				else
+					self.objects.query = []
 				self.objects.data_rows = []
 				return ->
 					return build_query
@@ -818,7 +836,9 @@ class model extends Middleware
 							tmp_obj[self.params.model_data.attributes[name].target_column] = self.objects.data_build.id
 							r = r.filter(tmp_obj)
 							r.___settings_model = target_column: self.params.model_data.attributes[name].related_column
-							return self.objects.data_build[name] = model.build_query_model(null, self.params.model_list[self.params.model_data.attributes[name].collection], self.params.builder, null, null, self.params.model_list).filter(id__in: r)
+							p = self.objects.data_build[name] = model.build_query_model(null, self.params.model_list[self.params.model_data.attributes[name].collection], self.params.builder, null, null, self.params.model_list).filter(id__in: r)
+							p.___settings_model = target_model: r, target_field: self.params.model_data.attributes[name].target_column, target_field2: self.params.model_data.attributes[name].related_column, relation: build_query.id
+							return p
 
 					if self.objects.data_build[name]?
 						return self.objects.data_build[name]
@@ -828,15 +848,17 @@ class model extends Middleware
 						tmp_obj[self.params.model_data.set_lists[name].field] = self.objects.data_build.id
 						r = r.filter(tmp_obj)
 						r.___settings_model = target_column: self.params.model_data.set_lists[name].source
-						return model.build_query_model(null, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list).filter(id__in: r)
+						p = model.build_query_model(null, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list).filter(id__in: r)
+						p.___settings_model = target_model: r, target_field: self.params.model_data.set_lists[name].field, target_field2: target_column: self.params.model_data.set_lists[name].source, relation: build_query.id
+						return p
 					else
 						return null
 				else
 					# throw new Error 'Constrcutor'
-					console.info name
+					# console.info name
 					return null
 
-	@build_query_model: (chain_query, model_data, builder, object, resource, model_list) ->
+	@build_query_model: (chain_query, model_data, builder, object, resource, model_list, is_cnewd = false) ->
 
 		object_data = {
 			is_one: false
@@ -846,7 +868,7 @@ class model extends Middleware
 			data_condition: {}
 			query: chain_query ? null
 			result_length: if object? then 1 else 0
-			type: if not object? and not chain_query? then 'create' else 'update'
+			type: if is_cnewd then 'create' else 'update'
 			settings: {}
 		}
 
@@ -902,7 +924,7 @@ class model extends Middleware
 
 						apply: (target, thisArg, argumentsList) ->
 							query_b = new model.Query.Query dialect: target_model.conn.dialect
-							return model.build_query_model null, target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root]
+							return model.build_query_model null, target_model, query_b, (argumentsList[0] ? {}), null, model.global_model[$root], true
 					}
 
 				else
