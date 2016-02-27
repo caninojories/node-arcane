@@ -58,6 +58,7 @@ class MySQL
 
 		self.pool = mysql.createPool(properties)
 
+
 		self.db =
 			query: ->
 				args = [].slice.call(arguments)
@@ -75,7 +76,14 @@ class MySQL
 					query = args[cntr]
 					cntr--
 
-				self.pool.query query, data, (err, rows, fields) ->
+				if not self.connection_time?
+					self.current_connection = self.pool.getConnection.sync(self.pool)
+					self.connection_time = setTimeout ->
+						self.current_connection.release()
+						self.connection_time = null
+					, 30000
+
+				self.current_connection.query query, data, (err, rows, fields) ->
 					if err
 						console.info err.stack ? err
 						cb err, null
