@@ -62,6 +62,10 @@ class model extends Middleware
 
 					model.scan $connector, vhost, mods, target_file, class_name
 
+		for vhost in $vhost
+			for i, v of model.global_model[vhost]
+				model.init_connection.sync(null, v, model.global_model[vhost])
+
 		Object.defineProperty global, '__model', {
 			get: ->
 				current_filename = do __stack[1].getFileName
@@ -153,6 +157,8 @@ class model extends Middleware
 
 		model.global_model[root][name] = model.models[root][name].cl = _cl
 
+		model.init_connection.sync(null, model.global_model[root][name], model.global_model[root])
+
 	__onDeleted: (root, name, filename, $connector) ->
 		delete model.models[root][name]
 
@@ -170,9 +176,10 @@ class model extends Middleware
 	}
 
 	@init_relations: (self, model_list, cb) ->
+		a = null
 		for i, v of self.attributes
 			if v and typeof v is 'object' and Object.getOwnPropertyDescriptor(v, 'sql_function')?.value is 'many_to_many'
-				console.log self.table, i, v
+				# console.log self.table, i, v
 
 				v.target_table = table_name = "#{self.table.replace self.conn.prefix, ''}_#{v.collection}".toLowerCase()
 
@@ -203,9 +210,11 @@ class model extends Middleware
 				throw d_err if d_err?
 
 			else if v and typeof v is 'object' and Object.getOwnPropertyDescriptor(v, 'sql_function')?.value is 'one_to_many'
-				console.log self.table, i, v
+				# console.log self.table, i, v
+				a = null
 			else if v and typeof v is 'object' and Object.getOwnPropertyDescriptor(v, 'sql_function')?.value is 'one_to_one'
-				console.log self.table, i, v
+				# console.log self.table, i, v
+				a = null
 
 		cb(null, true)
 
@@ -296,7 +305,7 @@ class model extends Middleware
 	@qparam_add: (name, value, condition) ->
 		condition[name] = value
 
-	@qparam_builder: (model_data, builder, params, condition, model_list, exclude) ->
+	@qparam_builder: (model_data, builder, params, condition, model_list, exclude, relationship) ->
 
 		tmp_condition = {}
 		table_join = []
@@ -335,6 +344,7 @@ class model extends Middleware
 
 			if condition_list.length > 2 or do_third_operation
 					last_model = model_data
+					in_relation = false
 
 					if table_join.length is 0
 						condition.push ['select', ['id']]
@@ -362,22 +372,39 @@ class model extends Middleware
 								table_join.push last_model.table
 
 						else if typeof model_data.attributes[x] is 'object' and Object.getOwnPropertyDescriptor(model_data.attributes[x], 'sql_function')?.value is 'many_to_many'
-							# last_model = model_list[model_data.attributes[x].collection]
-							#
-							# if table_join.indexOf(last_model.table) is -1
-							# 	condition.push ['from', [last_model.table, model_data.attributes[x].via, x]]
-							# 	table_join.push last_model.table
+							# wait.for model.init_connection, model_data, model_list
+							last_model = model_list[model_data.attributes[x].collection]
+
+							tbl_name = model_data.__many_to_many[model_data.attributes[x].target_table].table
+							if table_join.indexOf(tbl_name) is -1
+								condition.push ['from', [tbl_name, model_data.attributes[x].target_column, model_data.attributes[x].via]]
+								table_join.push tbl_name
+
+							tbl_name2 = model_list[model_data.attributes[x].collection].table
+							if table_join.indexOf(tbl_name2) is -1
+								condition.push ['from', [tbl_name2, model_data.attributes[x].via, model_data.attributes[x].related_column]]
+								table_join.push tbl_name2
+
+							in_relation = true
 
 						else if typeof last_model.attributes[x] isnt 'undefined'
 							tmp_condition[last_model.table] = [] unless tmp_condition[last_model.table]
 
 							found_condition = false
 
+							value = ''
 							if ((condition_list.length - 1) - y) is 1 and model.qparam_conditions[condition_list[-1..]]?
 								found_condition = true
-								tmp_condition[last_model.table].push [x, model.qparam_conditions[condition_list[-1..]](v)]
+								value = model.qparam_conditions[condition_list[-1..]](v)
 							else
-								tmp_condition[last_model.table].push [x, v]
+								value = v
+
+							if in_relation
+								relationship.query[last_model.table] ?= []
+								# relationship.query[last_model.table].push ['where', [x, value]]
+								relationship.query[last_model.table].push [(if found_condition then "#{x}__#{condition_list[-1..]}" else x), v]
+
+							tmp_condition[last_model.table].push [x, value]
 
 							break if found_condition
 
@@ -386,7 +413,6 @@ class model extends Middleware
 								break
 						else
 							console.log "ERROR: Unknown Column in MODEL '#{x}'."
-
 
 		if Object.keys(tmp_condition).length is 1
 			for i, v of tmp_condition
@@ -435,13 +461,13 @@ class model extends Middleware
 
 	@build_query_array = ->
 		if arguments.length is 1
-			model.qparam_builder @model_data, @builder, arguments[0], @data_query, @model_list, @exclude
+			model.qparam_builder @model_data, @builder, arguments[0], @data_query, @model_list, @exclude, @relationship
 		else if arguments.length > 1
 			__or = []
 
 			for i in arguments
 				old_length = @data_query.length
-				model.qparam_builder @model_data, @builder, i, @data_query, @model_list, @exclude
+				model.qparam_builder @model_data, @builder, i, @data_query, @model_list, @exclude, @relationship
 
 				__query = @data_query.slice(0)
 				__removed_query = 0
@@ -466,14 +492,16 @@ class model extends Middleware
 			if return_query
 				return query.build()
 
-			try
-				model.init_connection.sync null, model_data, model_list
-			catch err
-				console.info err.stack ? err
+			# try
+			# 	model.init_connection.sync null, model_data, model_list
+			# catch err
+			# 	console.info err.stack ? err
 
 			try
-				console.info query.build()
+				# console.info query.build()
+				# dt = Number new Date
 				result = model_data.conn.query.sync model_data.conn, query.build()
+				# console.log Number(new Date) - dt, 'Query Time >>>>>'
 			catch
 				throw _error
 
@@ -578,10 +606,10 @@ class model extends Middleware
 				delete self.objects.data_build.id if self.objects.data_build.id?
 				self.objects.data_rows = []
 				return ->
-					try
-						model.init_connection.sync null, self.params.model_data, self.params.model_list
-					catch err
-						console.log err.stack ? err
+					# try
+					# 	model.init_connection.sync null, self.params.model_data, self.params.model_list
+					# catch err
+					# 	console.log err.stack ? err
 					if self.objects.type is 'create'
 						try
 							self.objects.data_resource = {}
@@ -602,20 +630,26 @@ class model extends Middleware
 						self.get(target, 'update') self.objects.data_build
 
 			when 'filter'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return ->
+					tmp_obj_relation = {query: {}}
 					tmp_query = self.objects.query.slice(0)
-					model.build_query_array.apply {exclude: false, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
-					return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+					model.build_query_array.apply {relationship: tmp_obj_relation, exclude: false, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
+					r = model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+					r.___settings_model = relation: tmp_obj_relation
+					return r
 
 			when 'exclude'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return ->
+					tmp_obj_relation = {query: []}
 					tmp_query = self.objects.query.slice(0)
-					model.build_query_array.apply {exclude: true, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
-					return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+					model.build_query_array.apply {relationship: tmp_obj_relation, exclude: true, data_query: tmp_query, model_data: self.params.model_data, model_list: self.params.model_list, builder: self.params.builder}, arguments
+					r = model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
+					r.___settings_model = relation: tmp_obj_relation
+					return r
 
 			when 'get'
 				self.objects.data_rows = []
@@ -633,26 +667,23 @@ class model extends Middleware
 					return l
 
 			when 'all'
-				if self.objects.settings.relation? and self.objects.query[0]?
-					self.objects.query = [self.objects.query[0]]
-				else
-					self.objects.query = []
+				self.objects.query = self.objects.default_query
 				self.objects.data_rows = []
 				return ->
 					return build_query
 
 			when 'delete'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return ->
 					query = self.params.builder.remove().from(self.params.model_data.table)
 					for i in self.objects.query
 						query = query[i[0]].apply query, i[1]
 
-					try
-						model.init_connection.sync null, self.params.model_data, self.params.model_list
-					catch err
-						console.log err.stack ? err
+					# try
+					# 	model.init_connection.sync null, self.params.model_data, self.params.model_list
+					# catch err
+					# 	console.log err.stack ? err
 
 					try
 						self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
@@ -660,7 +691,7 @@ class model extends Middleware
 						console.log err.stack ? err
 
 			when 'update'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return (new_data) ->
 					d = {}
@@ -673,10 +704,10 @@ class model extends Middleware
 						if typeof query[i[0]] is 'function'
 							query = query[i[0]].apply query, i[1]
 
-					try
-						model.init_connection.sync null, self.params.model_data, self.params.model_list
-					catch err
-						console.log err.stack ? err
+					# try
+					# 	model.init_connection.sync null, self.params.model_data, self.params.model_list
+					# catch err
+					# 	console.log err.stack ? err
 
 					try
 						self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
@@ -684,7 +715,7 @@ class model extends Middleware
 						console.log err.stack ? err
 
 			when 'order_by'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return (field) ->
 					tmp_query = self.objects.query.slice(0)
@@ -697,7 +728,7 @@ class model extends Middleware
 					return model.build_query_model tmp_query, self.params.model_data, self.params.builder, null, null, self.params.model_list
 
 			when 'count'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				return ->
 					tmp_query = self.objects.query.slice(0)
 					tmp_query.push ['count', arguments]
@@ -759,7 +790,7 @@ class model extends Middleware
 					return []
 
 			when 'aggregate'
-				self.objects.query = [] unless self.objects.query?
+				self.objects.query = self.objects.default_query unless self.objects.query?
 				self.objects.data_rows = []
 				return ->
 					tmp_query = self.objects.query.slice(0)
@@ -805,6 +836,10 @@ class model extends Middleware
 					else
 						return "< #{self.params.model_data.table} >"
 
+			when 'select_related'
+				return (table) ->
+
+
 			else
 				if not isNaN(parseFloat(name)) and isFinite(name)
 					length = self.get(target, 'length')
@@ -821,6 +856,7 @@ class model extends Middleware
 						self.objects.result_length = tmp_objects.result_length
 						self.objects.data_rows = tmp_objects.data_rows
 						self.objects.data_build = tmp_objects.data_build
+
 					if typeof self.params.model_data.attributes[name] is 'object' and Object.getOwnPropertyDescriptor(self.params.model_data.attributes[name], 'sql_function')?.value is 'one_to_one' #self.params.model_data.attributes[name].model? and self.params.model_list[self.params.model_data.attributes[name].model]?
 						r = model.build_query_model null, self.params.model_list[self.params.model_data.attributes[name].model], self.params.builder, null, null, self.params.model_list
 						return r.filter(id: self.objects.data_build[name])
@@ -831,26 +867,49 @@ class model extends Middleware
 						return r.filter(tmp_obj)
 					else if typeof self.params.model_data.attributes[name] is 'object' and Object.getOwnPropertyDescriptor(self.params.model_data.attributes[name], 'sql_function')?.value is 'many_to_many'
 						if not self.objects.data_build[name]?
-							r = model.build_query_model null, self.params.model_data.__many_to_many[self.params.model_data.attributes[name].target_table], self.params.builder, null, null, self.params.model_list
+							tmodel = self.params.model_list[self.params.model_data.attributes[name].collection]
+							unless tmodel.___model_fields?
+								tmodel.___model_fields = []
+								tmodel.___model_fields.push ['select', ['id']]
+								tmodel.___model_fields.push ['as', ['id']]
+								for z, a of tmodel.attributes
+									if typeof a is 'object' and Object.getOwnPropertyDescriptor(a, 'sql_function')?.value is 'many_to_many'
+										continue
+									tmodel.___model_fields.push ['select', [z]]
+									tmodel.___model_fields.push ['as', [z]]
+							query_chain = tmodel.___model_fields.slice(0)
+							relation_table = self.params.model_data.__many_to_many[self.params.model_data.attributes[name].target_table].table
+							query_chain.push ['from', [relation_table, self.params.model_data.attributes[name].related_column, 'id']]
 							tmp_obj = {}
 							tmp_obj[self.params.model_data.attributes[name].target_column] = self.objects.data_build.id
-							r = r.filter(tmp_obj)
-							r.___settings_model = target_column: self.params.model_data.attributes[name].related_column
-							p = self.objects.data_build[name] = model.build_query_model(null, self.params.model_list[self.params.model_data.attributes[name].collection], self.params.builder, null, null, self.params.model_list).filter(id__in: r)
-							p.___settings_model = target_model: r, target_field: self.params.model_data.attributes[name].target_column, target_field2: self.params.model_data.attributes[name].related_column, relation: build_query.id
-							return p
+							query_chain.push ['where', [relation_table, tmp_obj]]
+							if relation_query = self.objects.settings.relation?.query?[self.params.model_list[self.params.model_data.attributes[name].collection].table]
+								for z in relation_query
+									tmp_obj = {}
+									tmp_obj[z[0]] = z[1]
+									query_chain.push ['where', [self.params.model_list[self.params.model_data.attributes[name].collection].table, tmp_obj]]
+							return self.objects.data_build[name] = model.build_query_model(query_chain, tmodel, self.params.builder, null, null, self.params.model_list)
 
 					if self.objects.data_build[name]?
 						return self.objects.data_build[name]
 					else if self.params?.model_data?.set_lists?[name]? and self.get(target, 'length') isnt 0
-						r = model.build_query_model null, self.params.model_data.set_lists[name].model, self.params.builder, null, null, self.params.model_list
+						tmodel = self.params.model_data.set_lists[name].target
+						unless tmodel.___model_fields?
+							tmodel.___model_fields = []
+							tmodel.___model_fields.push ['select', ['id']]
+							tmodel.___model_fields.push ['as', ['id']]
+							for z, a of tmodel.attributes
+								if typeof a is 'object' and Object.getOwnPropertyDescriptor(a, 'sql_function')?.value is 'many_to_many'
+									continue
+								tmodel.___model_fields.push ['select', [z]]
+								tmodel.___model_fields.push ['as', [z]]
+						query_chain = tmodel.___model_fields.slice(0)
+						relation_table = self.params.model_data.set_lists[name].model.table
+						query_chain.push ['from', [relation_table, self.params.model_data.set_lists[name].source, 'id']]
 						tmp_obj = {}
 						tmp_obj[self.params.model_data.set_lists[name].field] = self.objects.data_build.id
-						r = r.filter(tmp_obj)
-						r.___settings_model = target_column: self.params.model_data.set_lists[name].source
-						p = model.build_query_model(null, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list).filter(id__in: r)
-						p.___settings_model = target_model: r, target_field: self.params.model_data.set_lists[name].field, target_field2: target_column: self.params.model_data.set_lists[name].source, relation: build_query.id
-						return p
+						query_chain.push ['where', [relation_table, tmp_obj]]
+						return self.objects.data_build[name] = model.build_query_model(query_chain, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list)
 					else
 						return null
 				else
@@ -870,6 +929,7 @@ class model extends Middleware
 			result_length: if object? then 1 else 0
 			type: if is_cnewd then 'create' else 'update'
 			settings: {}
+			default_query: chain_query ? []
 		}
 
 		build_query = harmonyProxy (->),
