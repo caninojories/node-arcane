@@ -79,17 +79,27 @@ class MySQL
 				if not self.connection_time?
 					self.current_connection = self.pool.getConnection.sync(self.pool)
 					self.connection_time = setTimeout ->
+						# console.info 'Connection Release'
 						self.current_connection.release()
 						self.connection_time = null
 					, 30000
 
+				# self.pool.query query, data, (err, rows, fields) ->
+				# 	if err
+				# 		console.info err.stack ? err
+				# 		cb err, null
+				# 		return
+				# 	cb null, rows
+				# 	return
+
 				self.current_connection.query query, data, (err, rows, fields) ->
 					if err
 						console.info err.stack ? err
+						self.current_connection.release()
+						self.connection_time = null
 						cb err, null
 						return
 					cb null, rows
-					return
 
 		resolve null, true
 

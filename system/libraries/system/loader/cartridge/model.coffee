@@ -599,8 +599,7 @@ class model extends Middleware
 						obj = {}
 						obj[self.objects.settings.target_field] = self.objects.settings.relation
 						obj[self.objects.settings.target_field2] = model.check_field val
-						self.objects.settings.target_model.create(obj)
-						return null
+						return model.build_query_model(null, self.objects.settings.target_model, self.params.builder, null, null, self.params.model_list).create(obj)
 
 			when 'save'
 				delete self.objects.data_build.id if self.objects.data_build.id?
@@ -878,17 +877,19 @@ class model extends Middleware
 									tmodel.___model_fields.push ['select', [z]]
 									tmodel.___model_fields.push ['as', [z]]
 							query_chain = tmodel.___model_fields.slice(0)
-							relation_table = self.params.model_data.__many_to_many[self.params.model_data.attributes[name].target_table].table
-							query_chain.push ['from', [relation_table, self.params.model_data.attributes[name].related_column, 'id']]
+							relation_table = self.params.model_data.__many_to_many[self.params.model_data.attributes[name].target_table]
+							query_chain.push ['from', [relation_table.table, self.params.model_data.attributes[name].related_column, 'id']]
 							tmp_obj = {}
 							tmp_obj[self.params.model_data.attributes[name].target_column] = self.objects.data_build.id
-							query_chain.push ['where', [relation_table, tmp_obj]]
+							query_chain.push ['where', [relation_table.table, tmp_obj]]
 							if relation_query = self.objects.settings.relation?.query?[self.params.model_list[self.params.model_data.attributes[name].collection].table]
 								for z in relation_query
 									tmp_obj = {}
 									tmp_obj[z[0]] = z[1]
 									query_chain.push ['where', [self.params.model_list[self.params.model_data.attributes[name].collection].table, tmp_obj]]
-							return self.objects.data_build[name] = model.build_query_model(query_chain, tmodel, self.params.builder, null, null, self.params.model_list)
+							r = self.objects.data_build[name] = model.build_query_model(query_chain, tmodel, self.params.builder, null, null, self.params.model_list)
+							r.___settings_model = target_model: relation_table, target_field:self.params.model_data.attributes[name].target_column, target_field2:self.params.model_data.attributes[name].related_column, relation: self.objects.data_build.id
+							return r
 
 					if self.objects.data_build[name]?
 						return self.objects.data_build[name]
@@ -904,12 +905,14 @@ class model extends Middleware
 								tmodel.___model_fields.push ['select', [z]]
 								tmodel.___model_fields.push ['as', [z]]
 						query_chain = tmodel.___model_fields.slice(0)
-						relation_table = self.params.model_data.set_lists[name].model.table
-						query_chain.push ['from', [relation_table, self.params.model_data.set_lists[name].source, 'id']]
+						relation_table = self.params.model_data.set_lists[name].model
+						query_chain.push ['from', [relation_table.table, self.params.model_data.set_lists[name].source, 'id']]
 						tmp_obj = {}
 						tmp_obj[self.params.model_data.set_lists[name].field] = self.objects.data_build.id
-						query_chain.push ['where', [relation_table, tmp_obj]]
-						return self.objects.data_build[name] = model.build_query_model(query_chain, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list)
+						query_chain.push ['where', [relation_table.table, tmp_obj]]
+						r = self.objects.data_build[name] = model.build_query_model(query_chain, self.params.model_data.set_lists[name].target, self.params.builder, null, null, self.params.model_list)
+						# r.___settings_model = target_model: relation_table, target_field: self.params.model_data.set_lists[name].source, target_field2: self.params.model_data.set_lists[name].field, relation: build_query.id
+						return r
 					else
 						return null
 				else
