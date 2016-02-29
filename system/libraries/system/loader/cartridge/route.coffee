@@ -10,7 +10,7 @@ import util
 
 class route extends Middleware
 
-	@method_map: ['GET', 'HEAD', 'POST', 'TRACE', 'CONNECT', 'PATCH', 'DELETE', 'OPTIONS']
+	@method_map: ['GET', 'HEAD', 'POST', 'TRACE', 'CONNECT', 'PATCH', 'DELETE', 'OPTIONS', 'PUT', 'MERGE']
 	@url_tree: {}
 	@req: null
 
@@ -54,6 +54,7 @@ class route extends Middleware
 
 	__middle: ($url, $app, $config, $req, $res, $view, $controller) ->
 		http = util._extend {}, $config.all 'http'
+		skip_controller = []
 
 		if typeof http?.routeMiddleWare isnt 'function'
 			http.routeMiddleWare = ($req) ->
@@ -68,14 +69,26 @@ class route extends Middleware
 		if not route.url_tree[$req.root]
 			throw 404
 
-		for router in route.url_tree[$req.root]
-			if router.method is $req.method or router.method is '*'
-				if value = router.re.exec $req.url
-					is_found = true
-					loader = util._extend {}, router
-					break
+		for i, v of $controller when v['//controller-route~']?.source?
+			skip_controller.push i
+			for router in v['//controller-route~']?.source
+				if router.method is $req.method or router.method is '*'
+					if value = router.re.exec $req.url
+						is_found = true
+						loader = util._extend {}, router
+						break
+
+		unless is_found
+			for router in route.url_tree[$req.root]
+				if router.method is $req.method or router.method is '*'
+					if value = router.re.exec $req.url
+						is_found = true
+						loader = util._extend {}, router
+						break
 
 		if loader?
+			$res.set 'Content-Type', loader.option['content-type'] if loader.option?['content-type']?
+
 			route.setQueryValue $req, value, loader.re.keys
 			if loader.option.view? or loader.option.render? or typeof loader.option is 'string'
 
@@ -96,9 +109,6 @@ class route extends Middleware
 						$view ['render', view_template, JSON.parse(JSON.stringify((loader.option.params ? {})))]
 					else
 						wait.for $view.display, view_template, JSON.parse(JSON.stringify((loader.option.params ? {})))
-
-
-
 
 			else if loader.option.controller and loader.option.action
 				if typeof $controller[loader.option.controller]?[loader.option.action] is 'function'
@@ -125,7 +135,7 @@ class route extends Middleware
 			else
 				org_url = org_url.join '/'
 
-			if typeof $controller[segment[1]]?[org_url] is 'function'
+			if segment[1] not in skip_controller and typeof $controller[segment[1]]?[org_url] is 'function'
 				$req.controllerName = segment[1]
 
 				func = $controller[segment[1]][org_url]

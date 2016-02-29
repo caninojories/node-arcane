@@ -235,8 +235,8 @@ class SQLite
 		if @db and args.query.length isnt 0
 			@db.query args.query, args.data, (err, result) ->
 				if err
-					console.log err
-					args.callback null, []
+					# console.log err
+					args.callback err, null
 					return
 				args.callback null, result ? []
 				return

@@ -19,7 +19,7 @@ class Postgre
 
 	dialect: 'postgresql'
 
-	constructor: -> 
+	constructor: ->
 		@types =
 			String: type: 'VARCHAR'
 			Number: type: 'INT4'
@@ -90,10 +90,10 @@ class Postgre
 						do conn.resume
 					else
 						conn.resume true
-				
-					console.log err.code, err.stack
 
-					cb null, []
+					# console.log err.code, err.stack
+
+					cb err, null
 				return
 			return
 
@@ -120,7 +120,7 @@ class Postgre
 						callback null, 'onCreate'
 				else
 					callback 'ERROR: Can\'t create table.'
-			else 
+			else
 				self.db.query "SELECT column_name, udt_name, character_maximum_length, numeric_precision, column_default, is_nullable FROM information_schema.columns WHERE table_name = '#{self.prefix}#{table_name}'", (err, _result) ->
 					if err then console.log err.stack ? err
 
@@ -132,7 +132,7 @@ class Postgre
 							current_fields.push "#{i.column_name} #{do i.udt_name.toUpperCase}#{if i.character_maximum_length? then "(#{i.character_maximum_length})" else ""} #{if i.is_nullable is 'NO' then 'NOT NULL' else ''}".trim ' '
 
 					construct_fields = self.generateFields(data, model_list, notNullID: false, IDHasType: false, postgres: true, noSizeID: true)
-					
+
 					field_diff = self.field_diff(current_fields, construct_fields)
 
 					if field_diff
@@ -192,8 +192,8 @@ class Postgre
 		if @db and args.query.length isnt 0
 			@db.query args.query, args.data, (err, result) ->
 				if err
-					console.error err
-					args.callback null, []
+					# console.error err
+					args.callback err, null
 					return
 				args.callback null, result or []
 				return

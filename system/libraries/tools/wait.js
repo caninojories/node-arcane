@@ -9,15 +9,18 @@ var sync = __require(__dirname + '/../system/Sync.coffee');
 
 var wait = {
 
-    launchFiber: function(fn){ // wait.launchFiber(fn,arg1,arg2...)
+    launchFiber: function(fn, err_fn){ // wait.launchFiber(fn,arg1,arg2...)
+		  if(!err_fn) {
+			  err_fn = function(err, result) {
+					if(err) throw err;
+			  };
+		  }
         if (typeof fn !== 'function') throw new Error('first argument must be a function');
         var newargs=Array.prototype.slice.call(arguments,1); // remove function from args
         // Fiber( function(){ fn.apply(null, newargs)} ).run(); //launch new fiber, call the fn with the args, this=null (strict)
         sync(function() {
             return fn.apply(null, newargs);
-        }, function(err, result) {
-            if(err) throw err;
-        });
+        }, err_fn);
     }
 
     // ,applyAndWait: function(thisValue,fn,args){ // like js fn.apply, but wait for results
@@ -51,7 +54,7 @@ var wait = {
     //         }
     //         else {
     //             //resume fiber after "yield"
-    //             fiber.run();   
+    //             fiber.run();
     //         }
     //     };
 
@@ -68,7 +71,7 @@ var wait = {
     //     if (fiber.err) throw fiber.err; //auto throw on error
     //     return fiber.data; //return data on success
     // }
-    // 
+    //
     ,sleep: function(ms) {
         sync.sleep(ms);
     }
@@ -83,14 +86,14 @@ var wait = {
         // newargs.unshift(null);
         // return fn.sync.apply null, newargs
 
-        // return wait.applyAndWait(null,fn,newargs); 
+        // return wait.applyAndWait(null,fn,newargs);
     }
 
     ,forMethod: function(obj,methodName){ // wait.forMethod(MyObj,'select',....)
 
         var method = obj[methodName];
         if (!method) throw new Error('wait.forMethod: second argument must be the async method name (string)');
-        
+
         var newargs = Array.prototype.slice.call(arguments,2); // remove obj and method name from args
 
         return method.sync2(obj, newargs);
@@ -108,15 +111,15 @@ Main Functions:
 
 wait.parallel.launch = function(functions)
 ----------------------
-     
+
      Note: must be in a Fiber
-    
-     input: 
+
+     input:
         functions: Array = [func,arg,arg],[func,arg,arg],...
-        
+
         it launch a fiber for each func
         the fiber do: resultArray[index] = func.apply(undefined,args)
-        
+
      returns array with a result for each function
      do not "returns" until all fibers complete
 
@@ -125,16 +128,16 @@ wait.parallel.launch = function(functions)
 
 wait.parallel.map = function(arr,mappedFn)
 ----------------------
-     
+
      Note: must be in a Fiber
-    
-     input: 
+
+     input:
         arr: Array
-        mappedFn = function(item,index,arr) 
-        
+        mappedFn = function(item,index,arr)
+
             mappedFn should return converted item. Since we're in a fiber
             mappedFn can use wait.for and also throw/try/catch
-        
+
 
      returns array with converted items
      do not "returns" until all fibers complete
@@ -146,14 +149,14 @@ wait.parallel.filter = function(arr, itemTestFn)
 ----------------------
 
      Note: must be in a Fiber
-    
-     input: 
+
+     input:
         arr: Array
-        itemTestFn = function(item,index,arr) 
-        
+        itemTestFn = function(item,index,arr)
+
             itemTestFn should return true|false. Since we're in a fiber
             itemTestFn can use wait.for and also throw/try/catch
-        
+
      returns array with items where itemTestFn() returned true
      do not "returns" until all fibers complete
 
@@ -165,17 +168,17 @@ wait.parallel.filter = function(arr, itemTestFn)
 /*wait.parallel = {};
 
 wait.parallel.taskJoiner=function(inx,context,err,data){
-    
+
         if (context.finished) return;
 
         context.count++;
         //console.log('arrived result',inx,err,data,"result.count",context.count,"task",context.taskId);
-    
+
         if (err) {
             context.finished = true;
             return context.finalCallback(err); //err in one of the fibers
         }
-        else 
+        else
             context.results[inx]=data;
 
         if (context.count>=context.expected) { // all contexts arrived
@@ -206,7 +209,7 @@ wait.parallel.async_launch = function(functions,finalCallback){
     var context={results:[],count:0, expected:functions.length, finished:false, finalCallback:finalCallback};
     if (context.expected===0) return finalCallback(null,context.results);
 
-    //launch a fiber for each item, 
+    //launch a fiber for each item,
     // each item is an array containing function ptr and arguments
     for (var i = 0; i < functions.length; i++) {
         wait.launchFiber(wait.parallel.fiberForItemBody,i,context,functions[i]);
@@ -242,7 +245,7 @@ wait.parallel.filter = function(arr,itemTestFn){
 
     // create an array for each item where itemTestFn returned true
     var filteredArr=[];
-    for (var i = 0; i < arr.length; i++) 
+    for (var i = 0; i < arr.length; i++)
         if (testResults[i]) filteredArr.push(arr[i]);
 
     return filteredArr;

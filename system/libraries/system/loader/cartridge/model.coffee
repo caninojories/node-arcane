@@ -149,7 +149,8 @@ class model extends Middleware
 					if init and init is 'onCreate' && orm.hasOwnProperty init
 						do orm[init]
 			catch err
-				console.log err.stack or err if err?
+				# console.log err.stack or err if err?
+				throw err
 
 
 		_cl = new cl
@@ -537,7 +538,10 @@ class model extends Middleware
 						if _error.code is ObjectDoesNotExist
 							for i, v of __build
 								__defaults[i] = v
-							ret = self.get(target, 'create') __defaults
+							try
+								ret = self.get(target, 'create') __defaults
+							catch err
+								throw err
 							is_created = true
 						else
 							throw _error
@@ -559,7 +563,10 @@ class model extends Middleware
 						if _error.code is ObjectDoesNotExist
 							for i, v of __build
 								__defaults[i] = v
-							ret = self.get(target, 'create') __defaults
+							try
+								ret = self.get(target, 'create') __defaults
+							catch err
+								throw err
 							is_created = true
 						else
 							throw _error
@@ -586,10 +593,13 @@ class model extends Middleware
 						else
 							d[x] = model.check_field y
 					r = model.build_query_model null, self.params.model_data, self.params.builder, d, null, self.params.model_list, true
-					do r.save
+					try
+						do r.save
+					catch
+						throw _error
 
 					for i, j of extended
-						if Object.getOwnPropertyDescriptor(r[i], 'information')?.value is '_ARC__MODEL_'
+						if r[i]? and Object.getOwnPropertyDescriptor(r[i], 'information')?.value is '_ARC__MODEL_'
 							for k in j
 								r[i].add(k)
 
@@ -689,7 +699,8 @@ class model extends Middleware
 					try
 						self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
 					catch err
-						console.log err.stack ? err
+						# console.log err.stack ? err
+						throw err
 
 			when 'update'
 				self.objects.query = self.objects.default_query unless self.objects.query?
@@ -713,7 +724,8 @@ class model extends Middleware
 					try
 						self.params.model_data.conn.query.sync self.params.model_data.conn, query.build()
 					catch err
-						console.log err.stack ? err
+						# console.log err.stack ? err
+						throw err
 
 			when 'order_by'
 				self.objects.query = self.objects.default_query unless self.objects.query?
