@@ -256,7 +256,7 @@ class connector extends Middleware
 						fields.push i + ' ' + @types[type].type + connector.field_extender.call(this, i, @types[type])
 					else
 						throw new Error '#3 Invalid type of \'' + type + '\'.'
-				else if typeof data[i] == 'object' and Object.getOwnPropertyDescriptor(data[i], 'sql_function')?.value is 'one_to_one'
+				else if typeof data[i] == 'object' and Object.getOwnPropertyDescriptor(data[i], 'sql_function')?.value in ['one_to_one', 'one_to_many']
 					# console.info typeof data[i].model, typeof data[i].collection, data[i]
 					# console.info String Object.keys(model_list ? {})
 					if model_list and data[i].model in Object.keys(model_list)#model_list.hasOwnProperty(data[i].model)
@@ -287,9 +287,12 @@ class connector extends Middleware
 					else
 						throw new Error 'Can\'t initialize field \'' + i + '\', model \'' + data[i].collection + '\' in not found.'
 					#Open Model File
-				else
-					throw new Error 'Unknown type of field \'' + i + '\'. >> ', data[i]
-					return false
+
+				# else
+				# 	throw new Error 'Unknown type of field \'' + i + '\'. >> ', data[i]
+				# 	return false
+
+
 		# fields.push 'date_modified ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
 		# fields.push 'date_added ' + @types.Number.type + connector.field_extender.call(this, i, @types.Number)
 		# console.log fields

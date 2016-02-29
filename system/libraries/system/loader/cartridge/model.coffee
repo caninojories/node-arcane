@@ -63,7 +63,7 @@ class model extends Middleware
 					model.scan $connector, vhost, mods, target_file, class_name
 
 		for vhost in $vhost
-			for i, v of model.global_model[vhost]
+			try for i, v of model.global_model[vhost]
 				model.init_connection.sync(null, v, model.global_model[vhost])
 
 		Object.defineProperty global, '__model', {
@@ -157,7 +157,8 @@ class model extends Middleware
 
 		model.global_model[root][name] = model.models[root][name].cl = _cl
 
-		model.init_connection.sync(null, model.global_model[root][name], model.global_model[root])
+		try
+			model.init_connection.sync(null, model.global_model[root][name], model.global_model[root])
 
 	__onDeleted: (root, name, filename, $connector) ->
 		delete model.models[root][name]
@@ -508,8 +509,9 @@ class model extends Middleware
 			# if object_data.is_one and result.length isnt 1
 			# 	throw new Error "Model: Error 'get' function should return 1 row, result: #{result.length}"
 
-			for i in result
-				object_data.data_rows.push model.build_query_model null, model_data, builder, i, {id: i.id}, model_list
+			object_data.data_rows = result
+			# for i in result
+			# 	object_data.data_rows.push model.build_query_model null, model_data, builder, i, {id: i.id}, model_list
 
 			object_data.result_length = object_data.data_rows.length
 
@@ -843,11 +845,13 @@ class model extends Middleware
 				if not isNaN(parseFloat(name)) and isFinite(name)
 					length = self.get(target, 'length')
 					if length isnt 0
-						return self.objects.data_rows[name]
+						return model.build_query_model null, self.params.model_data, self.params.builder, self.objects.data_rows[name], {id: self.objects.data_rows[name].id}, self.params.model_list
+						# return self.objects.data_rows[name]
 					else
 						return null
 				else if regex = /^___queryset_get_([0-9]+?)$/g.exec(name)
-					return self.objects.data_rows[regex[1]]
+					# return self.objects.data_rows[regex[1]]
+					return model.build_query_model null, self.params.model_data, self.params.builder, self.objects.data_rows[regex[1]], {id: self.objects.data_rows[regex[1]].id}, self.params.model_list
 				else if name isnt 'constructor'
 					if self.objects.data_rows.length is 0
 						tmp_objects = util._extend {}, self.objects

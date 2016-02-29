@@ -18,7 +18,7 @@ class SQLite
 
 	dialect: 'sqlite'
 
-	constructor: -> 
+	constructor: ->
 		@types =
 			String: type: 'TEXT'
 			Number: type: 'INTEGER'
@@ -77,9 +77,9 @@ class SQLite
 							do conn.resume
 						else
 							conn.resume true
-						if not /already\sexists/g.test err.stack
-							console.log err.code, err.stack
-						_cb null, []
+						# if not /already\sexists/g.test err.stack
+						# 	console.log err.code, err.stack
+						_cb err, []
 
 				query = 'SELECT last_insert_rowid() AS `last_insert_id`'
 				data= []
@@ -95,14 +95,14 @@ class SQLite
 						do conn.resume
 					else
 						conn.resume true
-				
-					if not /already\sexists/g.test err.stack
-						console.log err.code, err.stack
+
+					# if not /already\sexists/g.test err.stack
+					# 	console.log err.code, err.stack
 
 				else
 					do conn.close
 
-				_cb null, []
+				_cb err, []
 				return
 			return
 
@@ -187,13 +187,13 @@ class SQLite
 							# query.push 'COMMIT;'
 
 							self.db.query 'CREATE TABLE `' + self.prefix + table_name + '_new` (' + construct_fields.join(', ') + ')', (err, _ret) ->
-								if err then console.log err
+								# if err then console.log err
 								self.db.query 'INSERT INTO `' + self.prefix + table_name + '_new` (' + new_fields.join(', ') + ') SELECT ' + old_fields.join(', ') + ' FROM `' + self.prefix + table_name + '`', (err, _ret) ->
-									if err then console.log err
+									# if err then console.log err
 									self.db.query 'DROP TABLE `' + self.prefix + table_name + '`', (err, _ret) ->
-										if err then console.log err
+										# if err then console.log err
 										self.db.query 'ALTER TABLE `' + self.prefix + table_name + '_new` RENAME TO `' + self.prefix + table_name + '`', (err, _ret) ->
-											if err then console.log err
+											# if err then console.log err
 											callback null, result
 
 								# callback null, result
