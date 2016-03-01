@@ -15,8 +15,8 @@ class Controller
 				old[name]
 
 			set: (target, name, value) ->
-				for i in old['//controller-route~'].tmp.method ? ['*']
-					for j in old['//controller-route~'].tmp.url ? [["/[[{controller}]]#{if name is 'index' then '' else "/#{name}"}", 'text/html']]
+				for i in old['//controller-route~'].tmp?.method ? ['*']
+					for j in old['//controller-route~'].tmp?.url ? [["/[[{controller}]]#{if name is 'index' then '' else "/#{name}"}", 'text/html']]
 						old['//controller-route~'].source ?= []
 						old['//controller-route~'].source.push {
 							re: String("#{j[0].replace(/\/+$|\/$/g, '')}").trim()

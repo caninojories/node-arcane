@@ -77,6 +77,7 @@ class route extends Middleware
 						is_found = true
 						loader = util._extend {}, router
 						break
+			break if is_found
 
 		unless is_found
 			for router in route.url_tree[$req.root]
@@ -86,9 +87,9 @@ class route extends Middleware
 						loader = util._extend {}, router
 						break
 
+
 		if loader?
 			$res.set 'Content-Type', loader.option['content-type'] if loader.option?['content-type']?
-
 			route.setQueryValue $req, value, loader.re.keys
 			if loader.option.view? or loader.option.render? or typeof loader.option is 'string'
 
@@ -159,14 +160,8 @@ class route extends Middleware
 		# else
 		# 	do exec_middle
 
-
-
-
-
-
-
 	@setQueryValue: ($req, value, keys) ->
-		if value.length > 0
+		if value? and value.length > 0
 			$req.query = {} unless $req.query
 			for val, i in value[1...]
 				$req.query[keys[i].name] = val
