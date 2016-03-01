@@ -137,7 +137,7 @@ class model extends Middleware
 		else if not $connector[orm.connection]?
 			throw new Error "No connection declared such as #{orm.connection}"
 
-		if primary then wait.launchFiber ->
+
 			try
 				orm.con root, $connector[root], orm.connection
 
@@ -158,7 +158,7 @@ class model extends Middleware
 
 		model.global_model[root][name] = model.models[root][name].cl = _cl
 
-		try
+		wait.launchFiber ->
 			model.init_connection.sync(null, model.global_model[root][name], model.global_model[root])
 
 	__onDeleted: (root, name, filename, $connector) ->
@@ -226,26 +226,35 @@ class model extends Middleware
 				self.conn.$ ->
 					self.is_init = true
 					if self.migrate and self.migrate isnt 'safe'
-						await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model_list, defer d_err, init
-						throw d_err if d_err
+						init = wait.forMethod self.conn, 'table', self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model_list #, defer d_err, init
+						# throw d_err if d_err
 
-						await model.init_relations self, model_list, defer d_err, ret
-						throw d_err if d_err
+						wait.for model.init_relations, self, model_list #, defer d_err, ret
+						# throw d_err if d_err
 
-						if init and init is 'onCreate' && self.hasOwnProperty init
-							do table[init]
+						if init and init is 'onCreate' && typeof self[init] is 'function'
+							wait.launchFiber ->
+								query_b = new model.Query.Query dialect: self.conn.dialect
+								self[init].apply model.build_query_model(null, self, query_b, null, null, model_list), []
+							, (err, result) ->
+								throw err if err?
+
 					cb null, true
 			else if not self.is_init?
 				self.is_init = true
 				if self.migrate and self.migrate isnt 'safe'
-					await self.conn.table self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model_list, defer d_err, init
-					throw d_err if d_err
+					init = wait.forMethod self.conn, 'table', self.table.replace(/[A-Z]/g, (match) -> "_#{do match.toLowerCase}").replace(/^_/, '').toLowerCase().replace(new RegExp("^#{self.conn.prefix}"), ''), self.attributes, model_list #, defer d_err, init
+					# throw d_err if d_err
 
-					await model.init_relations self, model_list, defer d_err, ret
-					throw d_err if d_err
+					wait.for model.init_relations, self, model_list #, defer d_err, ret
+					# throw d_err if d_err
 
-					if init and init is 'onCreate' && self.hasOwnProperty init
-						do table[init]
+					if init and init is 'onCreate' && typeof self[init] is 'function'
+						wait.launchFiber ->
+							query_b = new model.Query.Query dialect: self.conn.dialect
+							self[init].apply model.build_query_model(null, self, query_b, null, null, model_list), []
+						, (err, result) ->
+							throw err if err?
 
 				cb null, true
 			else
@@ -974,8 +983,8 @@ class model extends Middleware
 					return {configurable: true, enumerable: true}
 
 			enumerate: (target) ->
-				model.update_rows false, @object, builder, model_data, model_list
-				return ("___queryset_get_#{x}" for x in [0...@object.data_rows.length])
+				model.update_rows false, object_data, builder, model_data, model_list
+				return ("___queryset_get_#{x}" for x in [0...object_data.data_rows.length])
 
 		return build_query
 

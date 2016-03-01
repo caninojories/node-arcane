@@ -2,7 +2,7 @@ module.exports.connector = {
 
 	'session': {
 		adapter: 'sqlite',
-		file: __dirname + '/../storage/.Session.sqlite3'
+		file: ':memory:' //__dirname + '/../storage/.Session.sqlite3'
 	},
 
 	'globals': {

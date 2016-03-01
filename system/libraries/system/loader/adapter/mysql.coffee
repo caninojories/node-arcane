@@ -198,7 +198,7 @@ class MySQL
 							console.error 'ERROR: Creating table, ' + err
 							callback null, false
 							return
-						callback null, false
+						callback null, 'onCreate'
 						return
 				else
 					self.query 'SHOW COLUMNS FROM `' + self.prefix + table_name + '`', (err, result) ->

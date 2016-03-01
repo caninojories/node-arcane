@@ -17,26 +17,12 @@ class session extends Middleware
 	@redisClient: null
 
 	__init: ($vhost, $config, $connector) ->
-
 		session.redisClient = wait.for (func) ->
 			session.poolRedis.getClient (client, done) ->
 				func null, client
 
-		# for DocumentRoot in $vhost
-		# 	config = $config[DocumentRoot]['session']
-		# 	session.list[DocumentRoot] = {} unless session.list[DocumentRoot]
-
-		# 	connection_type = if config?.connection? then config.connection else 'sqlite'
-
-			# switch connection_type
-			# 	when 'redis'
-			# 		result = @redis_connection $connector[DocumentRoot]
-			# 	else
-			# 		result = @sqlite_connection $connector[DocumentRoot]
-
 	__middle: ($cookies, $req, $res, $app, $config, $connector) ->
 		http = $config.all 'http'
-
 		$req.sessionID = $cookies.get $req, 'ArcEngine'
 
 		unless $req.sessionID?
@@ -45,19 +31,6 @@ class session extends Middleware
 			$req.sessionID = shasum.digest('hex')
 
 			$res.cookie 'ArcEngine', $req.sessionID, $cookies.options
-
-			# $res.setHeader 'Set-Cookie', 'ArcEngine=' + $req.sessionID
-
-
-
-		# if Object.keys($cookies.list).length == 0 or typeof $cookies.list['ArcEngine'] is 'undefined'
-		# 	shasum = crypto.createHash('sha1', 'd8aae46eba9976b0cbb399444e710f4b')
-		# 	shasum.update session.guid()
-		# 	$req.sessionID = shasum.digest('hex')
-		# 	$res.setHeader 'Set-Cookie', 'ArcEngine=' + $req.sessionID
-		# else
-		# 	$req.sessionID = $cookies.list['ArcEngine']
-
 
 		if typeof http?.sessionMiddleWare is 'function'
 			self = this
@@ -88,11 +61,9 @@ class session extends Middleware
 						callback null, d
 						#}
 					else
-						callback null, self.initSessionData($req, $res, $connector, $config)
+						callback null, session.default_session($req, $config, $connector)
 		else
-			$req.session = @initSessionData $req, $res, $connector, $config
-
-
+			$req.session = session.default_session($req, $config, $connector)
 
 	__socket: ($req, $config, $app, $params) ->
 		http = $config['http']
@@ -101,35 +72,17 @@ class session extends Middleware
 		for cookies in $req.cookies
 			if cookies.name is 'ArcEngine'
 				cookies_value = cookies.value
-				# break
 
 		if cookies_value
 			$req.sessionID = cookies_value
 
 		self = this
-		default_exec = ->
-			redis = self.redis_connection session.redisClient, null, $req.sessionID
-			return Proxy.create {
-				get: (proxy, name) ->
-					data = JSON.parse redis.get $req.sessionID
-					if data and data.hasOwnProperty(name)
-						return data[name]
-					else
-						return null
-
-				set: (proxy, name, value) ->
-					redis.set name, value, $req.sessionID
-			}
 
 		if typeof http?.sessionMiddleWare is 'function'
 			self = this
 			return wait.for (callback) ->
 				result = $app http.sessionMiddleWare, http, $params
-				# if result?.set? and result?.get?
-				# 	callback null, Proxy.create {
-				# 		get: result.get
-				# 		set: result.set
-				# 	}
+
 				tmp_data = util._extend {}, (result?.data ? {})
 				if result?.data? and result?.save?
 					d = new harmonyProxy tmp_data,  #Proxy.create {
@@ -152,94 +105,52 @@ class session extends Middleware
 
 					callback null, d
 				else
-					callback null, do default_exec
+					callback null, session.default_session($req, $config, null)
+
 		else
-			return do default_exec
+			return session.default_session($req, $config, null)
 
-
-
-
-	###
-	# Private function and variables
-	###
-
-	@list: {}
-
-	proxy_session: null
-
-	raw_connection: {
-		get: (SessionID) ->
-		set: (SessionID, name, value) ->
-		sessionID: null
-	}
-
-	initSessionData: ($req, $res, $connector, $config) ->
-		config = $config.all 'session'
+	@default_session: ($req, $config, $connector) ->
+		config = $config.all?('session') ? $config['session']
 		connection_type = if config?.connection? then config.connection else 'redis'
+		if $connector and connection_type is 'memory'
+			is_new = true
+			if $connector.session.$?
+				wait.for $connector.session.$
+				wait.forMethod $connector.session, 'table', 'session', {
+					'session_id': String
+					'value': String
+					'expiration': Number
+				}
 
-		switch connection_type
-			when 'redis'
-				# $res.redis_client = do session.redis.createClient
-				# $res.onEnd () ->
-				# 	do $res.redis_client.quit
+			result = wait.forMethod $connector.session, 'query', "SELECT * FROM `tbl_session` WHERE `session_id` LIKE ?", [$req.sessionID]
+			if result.length is 0
+				tmp_session = {}
+			else if result.length isnt 0
+				is_new = false
+				tmp_session = JSON.parse result[0].value
 
-				result = @redis_connection session.redisClient, $connector, $req.sessionID
-			else
-				result = @sqlite_connection $connector, $req.sessionID
-
-		# result = @redis_connection $connector, $req.sessionID
-		return Proxy.create {
-			get: (proxy, name) ->
-				data = JSON.parse do result.get
-				if data and data.hasOwnProperty(name)
-					return data[name]
+			$req.events.on 'request-complete', ->
+				if is_new
+					wait.forMethod $connector.session, 'query', "INSERT INTO `tbl_session` (`session_id`, `value`) VALUES (?, ?)", [$req.sessionID, JSON.stringify tmp_session]
 				else
-					return null
+					wait.forMethod $connector.session, 'query', "UPDATE `tbl_session` SET `value`=? WHERE `session_id` LIKE ?", [JSON.stringify(tmp_session), $req.sessionID]
+		else
+			value = wait.forMethod session.redisClient, 'get', $req.sessionID
+			if not value?
+				tmp_session = {}
+			else
+				tmp_session = JSON.parse value
 
-			set: (proxy, name, value) ->
-				result.set name, value
-		}
+			$req.events.on 'request-complete', ->
+				wait.forMethod session.redisClient, 'set', $req.sessionID, JSON.stringify(tmp_session)
 
-	redis_connection: (client, $connector, sessionID) ->
-		return {
-			get: ->
-				value = wait.forMethod client, 'get', sessionID
-				if not value?
-					wait.forMethod client, 'set', sessionID, '{}'
-					value = '{}'
-				return value
-			set: (name, value) ->
-				data = JSON.parse do @get
-				data[name] = value
-				wait.forMethod client, 'set', sessionID, JSON.stringify(data)
-		}
+		return new harmonyProxy {},
+			get: (target, name) ->
+				tmp_session[name]
 
-
-	sqlite_connection: ($connector, sessionID) ->
-		if $connector.session.$?
-			wait.for $connector.session.$
-
-		wait.forMethod $connector.session, 'table', 'session', {
-			'session_id': String
-			'value': String
-			'expiration': Number
-		}
-
-		return {
-			get: ->
-				result = wait.forMethod $connector.session, 'query', "SELECT * FROM `tbl_session` WHERE `session_id` LIKE ?", [sessionID]
-				if result.length is 0
-					wait.forMethod $connector.session, 'query', "INSERT INTO `tbl_session` (`session_id`, `value`) VALUES (?, ?)", [sessionID, '{}']
-					result.push { value: '{}' }
-				return result[0].value
-
-			set: (name, value) ->
-				data = JSON.parse @get()
-				data[name] = value
-				wait.forMethod $connector.session, 'query', "UPDATE `tbl_session` SET `value`=? WHERE `session_id` LIKE ?", [JSON.stringify(data), sessionID]
-		}
-
-		# callback null, true # @raw_connection
+			set: (target, name, value) ->
+				tmp_session[name] = value
 
 	@guid: ->
 		s4 = ->
