@@ -24,7 +24,7 @@ class vhost extends Middleware
 					vhost.host_map[splitted[0]] = {}
 
 				vhost.host_map[splitted[0]][url] = __arc_engine.vhost[index].DocumentRoot
-			else 
+			else
 				vhost.host_map_normal[index] = __arc_engine.vhost[index].DocumentRoot
 
 			if vhost_project_list.indexOf(__arc_engine.vhost[index].DocumentRoot) is -1
@@ -50,12 +50,13 @@ class vhost extends Middleware
 
 		unless found
 			for i, v of vhost.host_map[$req.get 'Host'] ? {}
-				if $req.url.indexOf(i) is 0
+				if ($req.url.length is i.length and $req.url.indexOf(i) is 0) or $req.url.indexOf("#{i}/") is 0
 					found = true
 					$req.root = v
 					$req.baseUrl = i.replace /\/$/g, ''
 					$req.url = $req.url.replace new RegExp("^#{i.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&")}", 'g'), ''
 					break
+				break if found
 
 		unless found is true
 			if vhost.host_map_normal[$req.get 'Host']?

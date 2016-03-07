@@ -791,7 +791,7 @@ class model extends Middleware
 						else
 							tmp = []
 							for i in self.objects.data_rows
-								tmp.push i.toJSON()
+								tmp.push String JSON.stringify i, null, 4 #.toJSON()
 							return "[#{tmp.join ', '}]"
 
 			when 'slice'
