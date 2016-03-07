@@ -189,18 +189,18 @@ var generateTab = function(count) {
 Template.prototype.addToLine = function(data) {
 
     switch (data) {
-        case '<?-':
-            this.mode = 4;
-            break;
-        case '<?=':
-            this.mode = 1;
-            break;
-        case '<?#':
-            this.mode = 2;
-            break;
-        case '<?':
-            this.mode = 3;
-            break;
+      //   case '<?-':
+      //       this.mode = 4;
+      //       break;
+      //   case '<?=':
+      //       this.mode = 1;
+      //       break;
+      //   case '<?#':
+      //       this.mode = 2;
+      //       break;
+      //   case '<?':
+      //       this.mode = 3;
+      //       break;
         case '{{':
             this.mode = 1001;
             break;
@@ -213,9 +213,9 @@ Template.prototype.addToLine = function(data) {
         case '%}':
             this.mode = 1004;
             break;
-        case '?>':
-            this.mode = null;
-            break;
+      //   case '?>':
+      //       this.mode = null;
+            // break;
         default:
             if (this.mode === 4) {
                 this.source += '\u0001__output += ' + data + ';\u0001';
