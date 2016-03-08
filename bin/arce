@@ -13,7 +13,8 @@ var fs = require('fs'),
     colors = require('colors'),
     initiator = require(__dirname + '/../lib/Initiator.js');
 
-var arc_system_location = '/var/arcane';
+// var arc_system_location = '/var/arcane';
+var arc_system_location = (process.env[(process.platform == 'win32') ? 'USERPROFILE' : 'HOME']) + '/.arcane';
 
 var is_running = function(pid, cb) {
     var err = null,

@@ -4,7 +4,7 @@ import system.Middleware
 # import system.Sync
 
 import harmony-proxy
-import canvas
+# import canvas
 import fs
 import util
 
@@ -101,7 +101,7 @@ class FormClass extends Middleware
 				ctx.lineWidth = 8
 				ctx.strokeStyle = params.color
 				ctx.font = params.font
-				
+
 				text = ("" + Math.random()).substr(3, 5)
 				# session = {}
 				# # session = FormClass.req.session[params.name] if FormClass.req.session[params.name]
@@ -194,7 +194,7 @@ class FormClass extends Middleware
 		$res.form_error = FormClass.FormErrorRes
 
 		return FormClass.return
-	
+
 	@req: null
 	@res: null
 	@config: null
@@ -207,7 +207,7 @@ class FormClass extends Middleware
 
 	@findFormTemplate: ($req, field_name) ->
 		target_form_file = FormClass.form_list[$req.root][$req.controllerName]
-		
+
 		if fs.existsSync target_form_file
 			form_vars = __require target_form_file
 			defaults =
@@ -259,7 +259,7 @@ class FormClass extends Middleware
 						->
 							thisArg[argumentsList[0]]
 					else
-						
+
 						#console.log('WARNING: Invalid properties of form method \'' + name + '\'.');
 						->
 
@@ -268,7 +268,7 @@ class FormClass extends Middleware
 		else
 			if not thisArg or not thisArg[argumentsList[0]]
 				FormClass.FormMethods.sync_list.push (callback) ->
-					
+
 					#callback('Parameter \'' + argumentsList[0] + '\' is not setted.');
 					callback null, ""
 
@@ -392,10 +392,10 @@ class FormClass extends Middleware
 					when "selected"
 						if FormClass.req.body
 							default_value = FormClass.req.body[name] if FormClass.req.body and FormClass.req.body.hasOwnProperty(name)
-							
+
 							if field.hasOwnProperty('value') and default_value is field.value
 								return "checked='checked'"
-						
+
 						return ""
 			""
 		)
@@ -426,7 +426,7 @@ class FormClass extends Middleware
 
 				if form_vars.defaults.caseSensitive
 					name = k.replace(/\W/g, "_").replace(/^_/g, "").replace(/_$/g, "").replace(/_+/g, "_")
-				else 
+				else
 					name = k.replace(/\W/g, "_").replace(/^_/g, "").replace(/_$/g, "").replace(/_+/g, "_").toLowerCase()
 
 				if data_options.disable and data_options.disable.indexOf(name) isnt -1
@@ -499,12 +499,12 @@ class FormClass extends Middleware
 																	return ''
 																when "label"
 																	return l
-																when "col" 
+																when "col"
 																	if form_vars.fields[k].group[l].hasOwnProperty _regex[1]
 																		return form_vars.fields[k].group[l][_regex[1]]
 																	else
 																		return _length
-																else 
+																else
 																	if form_vars.fields[k].group[l].hasOwnProperty _regex[1]
 																		return form_vars.fields[k].group[l][_regex[1]]
 																	else return ""
@@ -574,4 +574,3 @@ class FormClass extends Middleware
 						FormClass.FieldRuleGenerator form_vars.defaults.caseSensitive, form_vars.fields[k].group[l], (if form_vars.fields[k].group[l].hasOwnProperty("readonly") and form_vars.fields[k].group[l].readonly then true else false), form_vars.defaults, (l if form_vars.fields[k].group.hasOwnProperty(l)), __return
 				else
 					FormClass.FieldRuleGenerator form_vars.defaults.caseSensitive, form_vars.fields[k], (if form_vars.fields[k].hasOwnProperty("readonly") and form_vars.fields[k].readonly then true else false), form_vars.defaults, k, __return
-
