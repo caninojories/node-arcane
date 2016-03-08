@@ -2,12 +2,24 @@ package export core.Controller
 
 import harmony-proxy
 import util
+import path
+import fs
+import tools.typescript
 
 class Controller
 
 	@annotation: ->
 		old = @prototype
-
+		angular_data = {}
+		angular_option = {
+			"target": 1
+			"module": 4
+			"moduleResolution": 2
+			"emitDecoratorMetadata": true
+			"experimentalDecorators": true
+			"removeComments": false
+			"noImplicitAny": false
+		}
 		old['//controller-route~'] = {}
 
 		@prototype = harmonyProxy util._extend({}, @prototype),
@@ -99,230 +111,42 @@ class Controller
 				old['//controller-route~'].tmp.method ?= []
 				old['//controller-route~'].tmp.method.push 'OPTIONS'
 
+		Object.defineProperty @, 'Angular',
+			get:  ->
+				caller = Controller.getCaller()
+				return (url) ->
+					ts_filename = "#{path.dirname(caller.getFileName())}/#{url}"
+					return ($req, $res)->
+						if fs.existsSync("#{ts_filename}.ts")
+							ts_filename = "#{ts_filename}.ts"
+						else if not fs.existsSync(ts_filename)
+							throw new Error "#{ts_filename} is not exists."
 
-		# return harmonyProxy @,
-		# 	get: (target, name) ->
-		# 		console.log name
-		#
-		# 	set: (target, name, value) ->
-		# 		console.log name, value
-		#
-		# 	apply: ->
-		# 		console.log 'test ---------------'
+						file_info = fs.statSync(ts_filename)
+						if not angular_data[ts_filename]? or (angular_data[ts_filename].mtime isnt file_info.mtime)
+							angular_data[ts_filename] = source: typescript.transpile(fs.readFileSync(ts_filename).toString('utf-8'), angular_option), mtime: file_info.mtime
 
-# class Controller
-# 	console.log @prototype
-#
-# 	Object.defineProperty @, 'path',
-# 		get: (name) ->
-# 			console.log name
-# 			return ->
-# 				console.log '=>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-#
-# 		set: (name, value) ->
-# 			console.log name, value
+						$res.set 'Content-Type', 'text/javascript'
+						$res.send angular_data[ts_filename].source
 
 
-# Controller = do ->
-# 	_Controller = ->
-#
-# 	__store = {}
-#
-# 	# _Controller.path = ->
-# 	# 	console.log '======================================='
-#
-# 	# Object.defineProperty _Controller, 'path',
-# 	# 	get: (name) ->
-# 	# 		console.log name
-# 	# 		return ->
-# 	# 			console.log '=>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-# 	#
-# 	# 	set: (name, value) ->
-# 	# 		console.log name, value
-#
-# 	# _Controller.prototype.constructor = harmonyProxy _Controller.prototype.constructor,
-# 	# 	get: (target, name) ->
-# 	# 		switch name
-# 	# 			when 'apply'
-# 	# 				return target[name]
-# 	# 			else
-# 	# 				console.log name
-# 	#
-# 	# 	set: (target, name, value) ->
-# 	# 		console.log name, value
-# 	#
-# 	# 	apply: ->
-# 	# 		# console.log 'testing asjkdhaksjdhajksdas'
-# 	#
-# 	# 		return @
-# 	#
-# 	# 	hasOwn: (target, name) ->
-# 	# 		console.info name, '---'
-# 	# 		return true
-# 	#
-# 	# _Controller.prototype = harmonyProxy _Controller.prototype,
-# 	# 	get: (target, name) ->
-# 	# 		switch name
-# 	# 			when 'constructor'
-# 	# 				return target.constructor
-# 	# 			else
-# 	# 				console.log name
-# 	#
-# 	# 	set: (target, name, value) ->
-# 	# 		console.log name, value
-# 	#
-# 	# 	hasOwn: (target, name) ->
-# 	# 		console.info name, '---'
-# 	# 		return true
-#
-# 	return harmonyProxy _Controller,
-# 		get: (target, name) ->
-# 			switch name
-# 				when 'prototype'
-# 					return target.prototype
-# 				when 'path'
-# 					return ->
-# 						console.log arguments
-# 				else
-# 					console.log name
-#
-# 		set: (target, name, value) ->
-# 			console.log name, value
-#
-# 		hasOwn: (target, name) ->
-# 			# console.info name, '---'
-# 			return true
-#
-# 		enumerate: (target) ->
-# 			return ['path', 'GET', 'POST', 'DELETE', 'MERGE', 'PUT']
-#
-# 		apply: ->
-# 			console.log '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-#
-# 	# return harmonyProxy (->),
-# 	# 	get: (target, name) ->
-# 	# 		# console.log name
-# 	# 		switch name
-# 	# 			when 'prototype'
-# 	# 				# return _Controller.prototype
-# 	# 				return harmonyProxy _Controller.prototype,
-# 	# 					get: (target, name) ->
-# 	# 						# console.log name
-# 	# 						switch name
-# 	# 							when 'constructor'
-# 	#
-# 	# 								return harmonyProxy target.constructor,
-# 	# 									get: (target, name) ->
-# 	# 										console.log name
-# 	#
-# 	# 									set: (target, name, value) ->
-# 	# 										console.log name, value
-# 	#
-# 	# 									apply: ->
-# 	# 										console.log '=============================================='
-# 	#
-# 	# 							else
-# 	# 								console.log name
-# 	#
-# 	# 					set: (target, name, value) ->
-# 	# 						console.log name, value
-# 	#
-# 	# 			else
-# 	# 				return __store[name]
-# 	#
-# 	# 	set: (target, name, value) ->
-# 	# 		console.log name, value
-# 	# 		__store[name] = value
-# 	#
-# 	# 	apply: ->
-# 	# 		console.log '=============================================='
-#
-# 	return _Controller
+	@getCaller: ->
+		stack = Controller.getStack()
+		stack.shift()
+		stack.shift()
+		stack[1]
 
 
-# Controller = do ->
-# 	_Controller = ->
-#
-# 	return harmonyProxy (->),
-# 		get: (target, name) ->
-# 			console.log name
-# 			switch name
-# 				when 'prototype'
-# 					return _Controller.prototype
-# 				else
-# 					return __store[name]
-#
-# 		set: (target, name, value) ->
-# 			console.log name, value
-# 			__store[name] = value
-#
-# 		apply: ->
-# 			console.log '=============================================='
+	@getStack: ->
+		# Save original Error.prepareStackTrace
+		origPrepareStackTrace = Error.prepareStackTrace
+		# Override with function that just returns `stack`
 
+		Error.prepareStackTrace = (_, stack) ->
+			stack
 
-
-# _C = ->
-# 	Controller = ->
-#
-# 	__store = {}
-#
-# 	propertyMissingHandler =
-# 		get: (target, name) ->
-# 			console.log name
-# 			return __store[name]
-#
-# 		set: (target, name, value) ->
-# 			console.log name, value
-# 			__store[name] = value
-#
-# 		apply: ->
-# 			console.log '=============================================='
-#
-# 	Controller.path = ->
-# 		console.log 'ooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooooo'
-#
-# 	# return harmonyProxy Controller, propertyMissingHandler
-# 	return Controller
-#
-# 	# return Controller
-
-# class Controller
-#
-# 	@path: ->
-# 		console.log '===================================================================='
-#
-# 	path: ->
-# 		console.log 'PATH SET >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
-#
-# 	harmonyProxy @,
-# 		get: (target, name) ->
-# 			console.log name
-# 			return __store[name]
-#
-# 		set: (target, name, value) ->
-# 			console.log name, value
-# 			__store[name] = value
-#
-# 		apply: ->
-# 			console.log '=============================================='
-
-#
-# 	# __store: {}
-# 	#
-# 	# propertyMissingHandler =
-# 	# 	get: (target, name) ->
-# 	# 		console.log name
-# 	#
-# 	# 	set: (target, name, value) ->
-# 	# 		console.log name, value
-# 	# 		target.__store[name] = value
-# 	#
-# 	# constructor: ->
-# 	# 	return harmonyProxy @, propertyMissingHandler
-
-
-
-# class Controller
-#
-# 	# @test: ->
-# 	# 	console.log "called"
+		err = new Error
+		stack = err.stack
+		Error.prepareStackTrace = origPrepareStackTrace
+		stack.shift()
+		stack
