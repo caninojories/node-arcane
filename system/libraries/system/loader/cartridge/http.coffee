@@ -29,10 +29,10 @@ class httpServer extends Middleware
 
 	charsetRegExp = /;\s*charset\s*=/
 
-	res_serv = 
+	res_serv =
 		__proto__: http.ServerResponse.prototype
-	
-	req_serv = 
+
+	req_serv =
 		__proto__: http.IncomingMessage.prototype
 
 	@proxy: httpProxy.createProxyServer({})
@@ -49,13 +49,13 @@ class httpServer extends Middleware
 					httpServer.config[i] = value
 				else
 					httpServer.rules[i] = value
-				
-		fs.watchFile '/var/arcane/htaccess.json', {
+
+		fs.watchFile "#{__tmp_location}/htaccess.json", {
 			interval: 1000
 		}, (curr, prev) ->
 			readConfig fn
 
-		fs.readFile '/var/arcane/htaccess.json', "utf8", fn
+		fs.readFile "#{__tmp_location}/htaccess.json", "utf8", fn
 
 
 	__middle: ($req, $res, $stime) ->
@@ -116,7 +116,7 @@ class httpServer extends Middleware
 
 	acceptParams = (str, index) ->
 		parts = str.split(RegExp(' *; *'))
-		ret = 
+		ret =
 			value: parts[0]
 			quality: 1
 			params: {}
@@ -152,11 +152,11 @@ class httpServer extends Middleware
 
 	res_serv.moveFileUpload = (name, to, cb) ->
 		if $req.files and $req.files[name]
-			try 
+			try
 				fs.unlinkSync $req.root + to
 			catch err
 				throw err
-			
+
 			source = fs.createReadStream $req.files[name].path
 			dest = fs.createWriteStream $req.root + to
 			source.pipe dest
@@ -245,7 +245,7 @@ class httpServer extends Middleware
 				body = ''
 				return
 		# Respond
-		
+
 		# body = statusCodes[status] + '. Redirecting to ' + encodeURI(address)
 
 		###################################
@@ -616,4 +616,3 @@ class httpServer extends Middleware
 
 	defineGetter req_serv, 'base_url', ->
 		@baseUrl ? ''
-
