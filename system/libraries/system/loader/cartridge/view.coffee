@@ -20,30 +20,35 @@ class view extends Middleware
 		Object.defineProperty global, 'Render', get: ->
 			target_file = "#{require('path').dirname(__stack[1].getFileName())}/"
 			(data, opt) ->
-				target_file = if arguments.length isnt 2 then "#{target_file}view.html" else "#{target_file}#{data}.html" 
+				target_file = if arguments.length isnt 2 then "#{target_file}view.html" else "#{target_file}#{data}.html"
 				opt = data if arguments.length isnt 2
 				return ['render', target_file, opt]
 
 		Object.defineProperty global, 'Display', get: ->
 			target_file = "#{require('path').dirname(__stack[1].getFileName())}/"
 			(data, opt) ->
-				target_file = if arguments.length isnt 2 then "#{target_file}view.html" else "#{target_file}#{data}.html" 
+				target_file = if arguments.length isnt 2 then "#{target_file}view.html" else "#{target_file}#{data}.html"
 				opt = data if arguments.length isnt 2
 				return ['display', target_file, opt]
 
 
 	__middle: ($config, $res, $req, $lib) ->
-		
-		obj = {
-			display: view.display $res, req: $req, res: $res, lib: $lib, body: '', helper: $config.all 'helper' #view.display_template($res)
-			render: view.rend $res, req: $req, res: $res, lib: $lib, body: '', helper: $config.all 'helper' # view.middle_ret.render
-			load: view.load $res, req: $req, res: $res, lib: $lib, body: '', helper: $config.all 'helper'
+		interpolate_default = {
+			scriptStart: '{%'
+			scriptEnd: '%}'
+			varStart: '{{'
+			varEnd: '}}'
 		}
 
+		obj = {
+			display: view.display $res, {req: $req, res: $res, lib: $lib, body: '', helper: $config.all('helper')}, $config.all('view')?.interpolate ? interpolate_default
+			render: view.rend $res, {req: $req, res: $res, lib: $lib, body: '', helper: $config.all('helper')}, $config.all('view')?.interpolate ? interpolate_default
+			load: view.load $res, {req: $req, res: $res, lib: $lib, body: '', helper: $config.all('helper')}, $config.all('view')?.interpolate ? interpolate_default
+		}
 
-		return view.view_handler $res, obj
+		return view.view_handler $res, obj, $config.all('view')?.interpolate ? interpolate_default
 
-	@display: ($res, context) ->
+	@display: ($res, context, interpolate) ->
 		return (args...) ->
 			cntr = args.length - 1
 			file = 'default'
@@ -57,7 +62,7 @@ class view extends Middleware
 			if args[cntr] and args[cntr].constructor.name is 'Function'
 				callback = args[cntr]
 				cntr--
-				
+
 			if args[cntr] and args[cntr].constructor.name is 'Boolean'
 				exact = args[cntr]
 				cntr--
@@ -75,7 +80,7 @@ class view extends Middleware
 				code = args[cntr]
 				cntr--
 
-			view.load($res, context) file, data, exact, (err, result) ->
+			view.load($res, context, interpolate) file, data, exact, (err, result) ->
 				if err
 					throw new Error err if err
 					return
@@ -83,7 +88,7 @@ class view extends Middleware
 				if exact and file is 'default'
 					throw [404, data]
 				else if typeof data.body is 'string'
-					view.load($res, context) 'template', data, false, (_err, _result) ->
+					view.load($res, context, interpolate) 'template', data, false, (_err, _result) ->
 						throw new Error _err if _err
 						data.res.statusCode = code
 						data.res.send _result
@@ -94,7 +99,7 @@ class view extends Middleware
 				return
 			return
 
-	@load: ($res, context) ->
+	@load: ($res, context, interpolate) ->
 		return (file, data, exact_file, callback) ->
 
 			for i of context
@@ -116,7 +121,7 @@ class view extends Middleware
 				if exact_file and file is 'default'
 					throw [404, data]
 
-				html = wait.for view.render, filename, data
+				html = wait.for view.render, filename, data, interpolate
 
 				callback null, html
 			else
@@ -124,18 +129,18 @@ class view extends Middleware
 				throw new Error "ERROR: File '#{filename}' not found."
 
 
-	@rend: ($res, context) ->
+	@rend: ($res, context, interpolate) ->
 		return (filename, d, ex) ->
 			throw [400, {}] if not filename? or not fs.existsSync filename
 
 			data = d or {}
 			exact = ex or false
-			result = wait.for view.load($res, context), filename, data, exact
+			result = wait.for view.load($res, context, interpolate), filename, data, exact
 			context.res.statusCode = data.__status ? 200
 			context.res.send result
 
 
-	@view_handler: ($res, obj, context)->
+	@view_handler: ($res, obj, context, interpolate)->
 		return harmonyProxy (->
 		), {
 			get: (proxy, name) ->
@@ -151,6 +156,6 @@ class view extends Middleware
 						wait.for obj.display, argumentsList[0][1], argumentsList[0][2], true
 					else
 						throw new Error('Invalid View Module type.')
-				else 
+				else
 					throw new Error('Invalid View Module parameters.')
 		}

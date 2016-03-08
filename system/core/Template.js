@@ -10,10 +10,11 @@ var fs = require('fs'),
 
 var cache_template = {};
 
-var Template = function(data, directory) {
+var Template = function(data, directory, interpolate) {
     this.is_end = false;
     this.data = data;
     this.path = directory;
+	 this.interpolate = interpolate
 };
 
 var TemplateParseError = function(err, source, raw_source, filename) {
@@ -201,16 +202,16 @@ Template.prototype.addToLine = function(data) {
       //   case '<?':
       //       this.mode = 3;
       //       break;
-        case '{{':
+        case this.interpolate.varStart:
             this.mode = 1001;
             break;
-        case '}}':
+        case this.interpolate.varEnd:
             this.mode = 1002;
             break;
-        case '{%':
+        case this.interpolate.scriptStart:
             this.mode = 1003;
             break;
-        case '%}':
+        case this.interpolate.scriptEnd:
             this.mode = 1004;
             break;
       //   case '?>':
@@ -394,10 +395,10 @@ var renderFile = function(file) {
     return [target_file, _template];
 };
 
-var render = function(template, data, callback) {
+var render = function(template, data, interpolate, callback) {
     var _template = renderFile(template);
     //file check exists
-    var t = new Template(data || {}, path.dirname(_template[0]));
+    var t = new Template(data || {}, path.dirname(_template[0]), interpolate);
     t.parse(_template[0], _template[1], callback);
 };
 
