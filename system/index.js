@@ -233,7 +233,7 @@ var crypto = require('crypto');
 
 var modules = ['$console', '$http', '$vhost', '$config', '$connector', '$model', '$cookies', '$url', '$session', '$bodyparser', '$controller', '$view', '$route', '$form', '$validator'];
 
-var arc_system_location = '/var/arcane';
+var arc_system_location = __tmp_location;
 
 var cert_pem = __dirname + '/../storage/https/cert.pem',
     key_pem = __dirname + '/../storage/https/key.pem';
