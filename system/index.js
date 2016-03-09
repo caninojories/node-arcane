@@ -70,7 +70,9 @@ Object.defineProperty(global, '__require', {
         return function(fname, options) {
 
             var path = require('path');
-            if (!fs.existsSync(fname) && fs.existsSync(fname + '.coffee')) {
+				if (!fs.existsSync(fname) && fs.existsSync(fname + '.ts')) {
+                fname += '.ts';
+            } else if (!fs.existsSync(fname) && fs.existsSync(fname + '.coffee')) {
                 fname += '.coffee';
             } else if (!fs.existsSync(fname) && fs.existsSync(fname + '.js')) {
                 fname += '.js';
@@ -118,6 +120,8 @@ Object.defineProperty(global, '__require', {
                 if(/\.coffee$/g.test(perfect_url)) {
                     recent_loaded_file[perfect_url].fdata = require(__dirname + '/core/Coffeescript').include(perfect_url);
                     recent_loaded_file[perfect_url].mdate = stats.mtime;
+					 } else if(/\.ts$/g.test(perfect_url)) {
+
                 } else {
                     recent_loaded_file[perfect_url].fdata = require(perfect_url);
                     recent_loaded_file[perfect_url].mdate = stats.mtime;

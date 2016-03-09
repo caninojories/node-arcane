@@ -16,8 +16,8 @@ class bodyparser extends Middleware
 
 
 	__middle: ($req, $wait) ->
-		if $req.method.toLowerCase() == 'post'
-			
+		if $req.method.toLowerCase() in ['post', 'delete', 'merge', 'put', 'patch', 'options']
+
 			bodyparser.form = new bodyparser.formidable
 			form_parse = $wait.forMethod bodyparser.form, 'parse', $req
 			$req.files = form_parse[1]

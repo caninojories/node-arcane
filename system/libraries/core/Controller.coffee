@@ -126,6 +126,9 @@ class Controller
 						if not angular_data[ts_filename]? or (angular_data[ts_filename].mtime isnt file_info.mtime)
 							angular_data[ts_filename] = source: typescript.transpile(fs.readFileSync(ts_filename).toString('utf-8'), angular_option), mtime: file_info.mtime
 
+						if (angular_data[ts_filename].error?.length ? 0) isnt 0
+							throw new Error angular_data[ts_filename].error[0]
+
 						$res.set 'Content-Type', 'text/javascript'
 						$res.send angular_data[ts_filename].source
 
