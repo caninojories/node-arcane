@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -e
+#set -e
 
 NODE_VERSION='v5.7.1'
 
@@ -181,7 +181,7 @@ fi
 nvm_profile
 nvm use $NODE_VERSION
 
-set +e
+#set +e
 
 if [ "$(npm_package_is_installed gulp)" != "1" ]; then
 	npm install -g gulp
