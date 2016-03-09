@@ -170,7 +170,7 @@ if ! grep -qc 'nvm.sh' "$PROFILE"; then
   eval "$install_libcap"
 
   echo "=> Installing node $NODE_VERSION"
-  # nvm_profile
+  nvm_profile
   nvm install $NODE_VERSION
 
   echo "=> Setting up port: 80 for $NVM_DIR/$NODE_VERSION/bin/node"
