@@ -15,8 +15,6 @@ if [ -z "$PROFILE" ]; then
   fi
 fi
 
-alias nvm_profile="source $PROFILE"
-
 if [ -z "$NVM_DIR" ]; then
   NVM_DIR="$HOME/.nvm"
 fi
