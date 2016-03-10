@@ -1,0 +1,24 @@
+{
+  "name": "new-project",
+  "author": "Juvic martires",
+  "description": "Just empty project",
+  "version": "1.0.0",
+  "main": "index.js",
+  "directories": {
+    "doc": "doc"
+  },
+  "watch": {
+	 "test": {
+      "patterns": ["apps", "config", "libraries", "model", "socketio"],
+      "extensions": "coffee"
+    }
+  },
+  "scripts": {
+    "test": "codo",
+	 "watch": "npm-watch"
+  },
+  "license": "ISC",
+  "devDependencies": {
+    "npm-watch": "^0.1.1"
+  }
+}
