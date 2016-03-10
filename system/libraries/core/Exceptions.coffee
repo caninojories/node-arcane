@@ -1,5 +1,5 @@
-package export Exceptions
+#!package export Exceptions
 
 class Exceptions
-	
+
 	@ObjectDoesNotExist: 'object_404'

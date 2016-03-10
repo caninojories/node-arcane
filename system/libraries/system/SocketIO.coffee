@@ -1,15 +1,13 @@
-package export system.SocketIO
+#!package export system.SocketIO
 
-import system.core.*
-import system.Core
-# import system.Sync
-import system.tools.params
-
-import path
-import crypto
-import harmony-proxy
-import tools.wait
-import events
+#!import system.core.*
+#!import system.Core
+#!import system.tools.params
+#!import path
+#!import crypto
+#!import harmony-proxy
+#!import tools.wait
+#!import events
 
 class SocketIO extends core.WObject
 

@@ -1,6 +1,6 @@
-package export cartridge.SysConsole
+#!package export cartridge.SysConsole
 
-import system.Middleware
+#!import system.Middleware
 
 class SysConsole extends Middleware
 
@@ -90,7 +90,7 @@ class SysConsole extends Middleware
 			conn = pool.get()
 
 			conn.error (err) ->
-				
+
 				if err.code is 100
 					conn.resume()
 				else
@@ -108,7 +108,7 @@ class SysConsole extends Middleware
 
 		catch err
 			console.log err
-		
+
 	doReadRecords: (sqlite, filename, query, param, cb) ->
 		pool = sqlite.createPool(filename, 50, 10000)
 		conn = pool.get()
@@ -143,8 +143,3 @@ class SysConsole extends Middleware
 
 		catch err
 			cb err
-
-
-
-
-

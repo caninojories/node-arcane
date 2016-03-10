@@ -1,14 +1,14 @@
 ###---------------------------------------------------------------------------------------------
 	Copyright 2015 - 2015 Arcane Project
-	
+
 ###
-package export Configuration
+#!package export Configuration
 
 ###---------------------------------------------------------------------------------------------
 # This class represents for connection configuration.
 #
 # @author [Juvic Martires]
-# @version [v1.0.0] 
+# @version [v1.0.0]
 ###
 class Configuration
 
@@ -167,12 +167,12 @@ class Configuration
 	date: (value, label, param, resolve) ->
 		if new Date(date) isnt "Invalid Date" and not isNaN(new Date(date))
 			resolve null, new Date(date)
-		else 
+		else
 			resolve "#{label} is not a valid date."
 		return
 
 	json: (value, label, param, resolve) ->
-		try 
+		try
 			resolve null, JSON.parse value
 		catch err
 			resolve "#{label} is not a valid JSON."

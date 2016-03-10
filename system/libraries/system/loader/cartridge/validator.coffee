@@ -1,9 +1,9 @@
-package export cartridge.validator
+#!package export cartridge.validator
 
-import system.Middleware
-import tools.validator
-import harmony-proxy
-import util
+#!import system.Middleware
+#!import tools.validator
+#!import harmony-proxy
+#!import util
 
 v = validator
 
@@ -103,7 +103,7 @@ class validator extends Middleware
 					else
 						if validator_detected
 							$_STORE.value[name] = $_STORE.value[name]
-						else 
+						else
 							throw new Error("Invalid validation name '#{i}'.")
 
 
@@ -144,7 +144,7 @@ class validator extends Middleware
 			}
 
 	__middle: ($req, $res) ->
-		
+
 		return validator.object($req)
 
 

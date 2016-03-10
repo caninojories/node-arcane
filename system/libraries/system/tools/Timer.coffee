@@ -1,4 +1,4 @@
-package export Timer
+#!package export Timer
 
 class Timer
 

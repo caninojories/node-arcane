@@ -1,4 +1,4 @@
-package export pathToRegexp
+#!package export pathToRegexp
 
 parse = (str) ->
 	tokens = []
@@ -12,12 +12,12 @@ parse = (str) ->
 		offset = res.index
 		path += str.slice(index, offset)
 		index = offset + m.length
-		
+
 		# Ignore already escaped sequences.
 		if escaped
 			path += escaped[1]
 			continue
-		
+
 		# Push the current path onto the tokens.
 		if path
 			tokens.push path
@@ -40,10 +40,10 @@ parse = (str) ->
 			repeat: repeat
 			pattern: escapeGroup(pattern)
 
-	
+
 	# Match any characters still remaining.
 	path += str.substr(index)	if index < str.length
-	
+
 	# If the path exists, push it onto the end.
 	tokens.push path	if path
 	tokens
@@ -54,10 +54,10 @@ compile = (str) ->
 
 
 tokensToFunction = (tokens) ->
-	
+
 	# Compile all the tokens into regexps.
 	matches = new Array(tokens.length)
-	
+
 	# Compile all the patterns before compilation.
 	i = 0
 
@@ -121,7 +121,7 @@ flags = (options) ->
 
 
 regexpToRegexp = (path, keys) ->
-	
+
 	# Use a negative lookahead to match only capturing groups.
 	groups = path.source.match(/\((?!\?)/g)
 	if groups
@@ -154,7 +154,7 @@ arrayToRegexp = (path, keys, options) ->
 stringToRegexp = (path, keys, options) ->
 	tokens = parse(path)
 	re = tokensToRegExp(tokens, options)
-	
+
 	# Attach keys back to the regexp.
 	i = 0
 
@@ -171,7 +171,7 @@ tokensToRegExp = (tokens, options) ->
 	route = ""
 	lastToken = tokens[tokens.length - 1]
 	endsWithSlash = typeof lastToken is "string" and /\/$/.test(lastToken)
-	
+
 	# Iterate over the tokens and create our regexp string.
 	i = 0
 
@@ -192,7 +192,7 @@ tokensToRegExp = (tokens, options) ->
 				capture = prefix + "(" + capture + ")"
 			route += capture
 		i++
-	
+
 	# In non-strict mode we allow a slash at the end of match. If the path to
 	# match already ends with a slash, we remove it for consistency. The slash
 	# is valid at the end of a path match, not in the middle. This is important
@@ -201,7 +201,7 @@ tokensToRegExp = (tokens, options) ->
 	if end
 		route += "$"
 	else
-		
+
 		# In non-ending mode, we need the capturing groups to match as much as
 		# possible by using a positive lookahead to the end or next path segment.
 		route += (if strict and endsWithSlash then "" else "(?=\\/|$)")

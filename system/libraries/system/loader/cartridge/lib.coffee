@@ -1,13 +1,12 @@
-package export cartridge.lib
+#!package export cartridge.lib
 
-import system.Middleware
-
-import fs
+#!import system.Middleware
+#!import fs
 
 class lib extends Middleware
 
 	__init: () ->
-		
+
 	__middle: ($req, $res) ->
 		lib = (lib) ->
 			filename = "#{$req.root}/libraries/#{lib}.js"
@@ -18,4 +17,3 @@ class lib extends Middleware
 			return
 
 		return lib
-		

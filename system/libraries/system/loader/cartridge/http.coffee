@@ -1,29 +1,27 @@
-package export cartridge.httpServer
+#!package export cartridge.httpServer
 
-import system.Middleware
+#!import system.Middleware
 
-import http-proxy
-import fs
-import path
-import url
+#!import http-proxy
+#!import fs
+#!import path
+#!import url
+#!import http
+#!import net
 
-import http
-
-import net
-
-import tools.http.fresh
-import tools.http.parseurl
-import tools.http.proxy-addr
-import tools.http.type-is
-import tools.http.accepts
-import tools.http.range-parser
-import tools.http.vary
-import tools.http.content-type
-import tools.http.etag
-import tools.http.mime
-import tools.http.cookie
-import tools.http.cookie-signature
-import tools.http.utils-merge
+#!import tools.http.fresh
+#!import tools.http.parseurl
+#!import tools.http.proxy-addr
+#!import tools.http.type-is
+#!import tools.http.accepts
+#!import tools.http.range-parser
+#!import tools.http.vary
+#!import tools.http.content-type
+#!import tools.http.etag
+#!import tools.http.mime
+#!import tools.http.cookie
+#!import tools.http.cookie-signature
+#!import tools.http.utils-merge
 
 class httpServer extends Middleware
 

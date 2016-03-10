@@ -1,21 +1,19 @@
-package export cartridge.model
+#!package export cartridge.model
 
-import system.Middleware
-# import system.Sync
+#!import system.Middleware
 
+#!import fs
+#!import harmony-proxy
+#!import path
 
-import fs
-import harmony-proxy
-import path
+#!import tools.wait
+#!import tools.iced
+#!import util
+#!import model.ModelComparators
 
-import tools.wait
-import tools.iced
-import util
-import model.ModelComparators
+#!import ObjectDoesNotExist in core.Exceptions
 
-import ObjectDoesNotExist in core.Exceptions
-
-import fieldManyToMany, fieldOneToOne in core.Model
+#!import fieldManyToMany, fieldOneToOne in core.Model
 
 
 class model extends Middleware

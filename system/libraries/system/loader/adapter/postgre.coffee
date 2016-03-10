@@ -1,7 +1,7 @@
-package export Postgre
+#!package export Postgre
 
-import sqli
-import jsondiffpatch
+#!import sqli
+#!import jsondiffpatch
 
 class Postgre
 

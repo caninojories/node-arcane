@@ -1,4 +1,4 @@
-package export model.ModelComparators
+#!package export model.ModelComparators
 
 
 class ModelComparators

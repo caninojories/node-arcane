@@ -1,19 +1,11 @@
-package export system.Middleware
+#!package export system.Middleware
 
-import system.core.*
-import system.tools.params
-
-import events
-import threads
-import path
-
-# import system.SocketIO
-
-import tools.wait
-
-# import http
-
-# import system.Sync
+#!import system.core.*
+#!import system.tools.params
+#!import events
+#!import threads
+#!import path
+#!import tools.wait
 
 class Middleware extends core.WObject
 

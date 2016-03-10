@@ -1,16 +1,12 @@
-package export Core
+#!package export Core
 
-import system.core.*
-
-import system.tools.params
-import system.loader.*
-# import system.Sync
-
-import fs
-import path
-
-import tools.wait
-import tools.hound
+#!import system.core.*
+#!import system.tools.params
+#!import system.loader.*
+#!import fs
+#!import path
+#!import tools.wait
+#!import tools.hound
 
 class Core extends core.WObject
 

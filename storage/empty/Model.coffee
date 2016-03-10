@@ -1,14 +1,14 @@
 ###---------------------------------------------------------------------------------------------
   Copyright 2015 - 2015 Arcane Project
-  
+
 ###
-package export Model
+#!package export Model
 
 ###---------------------------------------------------------------------------------------------
-# This class represents for model design. 
+# This class represents for model design.
 #
 # @author [author]
-# @version [version] 
+# @version [version]
 ###
 class Model
 

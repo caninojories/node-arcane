@@ -1,22 +1,21 @@
-###---------------------------------------------------------------------------------------------
-  Copyright 2015 - 2015 Arcane Project
+#!package export Configuration
 
-###
-package export Configuration
+#!import core.Configuration
 
-###---------------------------------------------------------------------------------------------
+###---------------------------------------------------------------------------------------------###
+
 # This class represents for http configuration.
 #
-# @author [author]
-# @version [version]
-###
-class Configuration
+# @author Juvic Martires
+# @version 1.0.0
+#
+class ViewConfig extends Configuration
 
-	###
-	# configuration name
-	###
+	# Configuration group settings
 	@group: 'view'
 
+	# Enable to change the interpolate symbols in html files under views.
+	# @property [Object] interpolate
 	interpolate: {
 		scriptStart: '{%'
 		scriptEnd: '%}'

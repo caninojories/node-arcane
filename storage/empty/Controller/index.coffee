@@ -2,9 +2,9 @@
   Copyright 2015 - 2015 Arcane Project
 
 ###
-package {{controller}}
+#!package {{controller}}
 
-import core.Controller
+#!import core.Controller
 
 ###---------------------------------------------------------------------------------------------
  # This class represents for current controller of arcane.

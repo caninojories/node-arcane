@@ -1,4 +1,4 @@
-package export Model
+#!package export Model
 
 class Model
 

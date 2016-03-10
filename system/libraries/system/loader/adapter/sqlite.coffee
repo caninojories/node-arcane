@@ -1,6 +1,6 @@
-package export SQLite
+#!package export SQLite
 
-import sqli
+#!import sqli
 
 class SQLite
 

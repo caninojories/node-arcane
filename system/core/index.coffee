@@ -1,33 +1,23 @@
-###
-#
-###
-package System
+#!package System
 
-###
-#
-###
-import system.Core
-import system.Middleware
-# import system.Sync
-import system.SocketIO
+#!import system.Core
+#!import system.Middleware
+#!import system.SocketIO
 
-import http
-import https
+#!import http
+#!import https
 
-import tools.wait
+#!import tools.wait
 
-import tools.fibby
-import tools.fib-connect
+#!import tools.fibby
+#!import tools.fib-connect
 
-import system.core.MiddlewareHandler
-import system.tools.params
+#!import system.core.MiddlewareHandler
+#!import system.tools.params
 
-import tools.http.stream
-import tools.http.cors
+#!import tools.http.stream
+#!import tools.http.cors
 
-###
-#
-###
 class System extends Core
 
 	app: fibConnect(handler: Middleware.handle, app: MiddlewareHandler)
@@ -114,13 +104,6 @@ class System extends Core
 
 		# temporary
 		socket_io = new SocketIO(http_server)
-		
+
 		# return http_server
 		return http_server
-		# catch err
-		# 	throw err
-			# console.log err.stack ? err
-			# callback err
-		# , (err, result) ->
-		# 	if err then throw err
-		# 	callback err, result

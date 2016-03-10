@@ -1,14 +1,10 @@
-package export cartridge.FormClass
+#!package export cartridge.FormClass
 
-import system.Middleware
-# import system.Sync
-
-import harmony-proxy
-# import canvas
-import fs
-import util
-
-import tools.wait
+#!import system.Middleware
+#!import harmony-proxy
+#!import fs
+#!import util
+#!import tools.wait
 
 class FormClass extends Middleware
 

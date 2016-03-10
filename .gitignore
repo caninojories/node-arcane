@@ -3,3 +3,4 @@ node_modules
 .directory
 .Globals.sqlite3
 .Session.sqlite3
+doc

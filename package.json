@@ -4,9 +4,15 @@
   "private": false,
   "description": "MVC Framework for nodejs.",
   "main": "system/index.js",
+  "watch": {
+	 "test": {
+      "patterns": ["system", "storage", "config", "lib"],
+      "extensions": "coffee"
+    }
+  },
   "scripts": {
-    "start": "nodemon ./",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "codo system config lib",
+	 "watch": "npm-watch"
   },
   "keywords": [
     "MVC",

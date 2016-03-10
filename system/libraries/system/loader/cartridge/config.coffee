@@ -1,11 +1,11 @@
-package export cartridge.config
+#!package export cartridge.config
 
-import system.Middleware
+#!import system.Middleware
 
-import fs
-import path
-import harmony-proxy
-import events
+#!import fs
+#!import path
+#!import harmony-proxy
+#!import events
 
 class config extends Middleware
 
@@ -18,7 +18,7 @@ class config extends Middleware
 			if fs.existsSync "#{DocumentRoot}/config"
 				config.loadConfigFile DocumentRoot, "#{__dirname}/../../../../../config"
 				config.loadConfigFile DocumentRoot, "#{DocumentRoot}/config"
-					
+
 			if fs.existsSync "#{DocumentRoot}/template"
 				template_list = fs.readdirSync "#{DocumentRoot}/template"
 				for templ in template_list
@@ -32,7 +32,7 @@ class config extends Middleware
 		# return config.data
 		return harmonyProxy {}, {
 			get: (target, name) ->
-				
+
 				if name is 'event'
 					return config.events
 				else if config.data[name]?
@@ -79,7 +79,7 @@ class config extends Middleware
 
 	__onDeleted: (root, name, filename) ->
 		@__onCreated root, name, filename
-		
+
 	###
 	# Private function and variables
 	###
@@ -129,4 +129,3 @@ class config extends Middleware
 		return null
 
 	@addEvent: (root, target) ->
-

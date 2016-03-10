@@ -1,14 +1,11 @@
-package export cartridge.session
+#!package export cartridge.session
 
-import system.Middleware
-
-import path
-import crypto
-import util
-
-import tools.wait
-
-import harmony-proxy
+#!import system.Middleware
+#!import path
+#!import crypto
+#!import util
+#!import tools.wait
+#!import harmony-proxy
 
 class session extends Middleware
 

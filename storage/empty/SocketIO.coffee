@@ -1,14 +1,14 @@
 ###---------------------------------------------------------------------------------------------
   Copyright 2015 - 2015 Arcane Project
-  
+
 ###
-package SocketIO{{name}}
+#!package SocketIO{{name}}
 
 ###---------------------------------------------------------------------------------------------
 # This class represents for connection configuration.
 #
 # @author [author]
-# @version [version] 
+# @version [version]
 ###
 class SocketIO{{name}}
 
@@ -18,4 +18,3 @@ class SocketIO{{name}}
 	 # @param modules for socketio
 	 ###
 	index: ($req, $socket) ->
-		

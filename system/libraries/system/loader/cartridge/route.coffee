@@ -1,12 +1,10 @@
-package export cartridge.route
+#!package export cartridge.route
 
-import system.Middleware
-import system.tools.pathToRegexp
-
-import harmony-proxy
-
-import tools.wait
-import util
+#!import system.Middleware
+#!import system.tools.pathToRegexp
+#!import harmony-proxy
+#!import tools.wait
+#!import util
 
 class route extends Middleware
 

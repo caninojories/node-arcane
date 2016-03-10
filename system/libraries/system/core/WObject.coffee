@@ -1,7 +1,6 @@
-package export WObject
+#!package export WObject
 
-# import system.Sync
-import events
+#!import events
 
 class WObject extends events.EventEmitter
 

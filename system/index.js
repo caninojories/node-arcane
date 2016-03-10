@@ -7,7 +7,6 @@ require('clarify');*/
 
 var fs = require('fs'),
     path = require('path'),
-    default_conf = require(__dirname + '/../config/default.js').default,
     initiator = require(__dirname + '/../lib/Initiator.js'),
 
     sync = require(__dirname + '/../lib/sync'),
@@ -340,6 +339,7 @@ var ClusterServer = {
             // fibby.run(function(fib) {
                 try {
                     var app = __require(__dirname + '/core/index.coffee');
+						  var default_conf = new __require(__dirname + '/../config/default.coffee');
 
                     app.server(modules, function() {
                         app.initialize(null).listen(default_conf.port);

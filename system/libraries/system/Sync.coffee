@@ -1,6 +1,6 @@
-package export Sync
+#!package export Sync
 
-import fibers
+#!import fibers
 
 ###
 	Copyright 2011 Yuriy Bogdanov <chinsay@gmail.com>
@@ -123,7 +123,7 @@ Function::sync = (obj) ->
 	err = undefined
 	result = undefined
 	yielded = false
-	
+
 	###if /^\//g.test(__stack[1].getFileName()) and !/node_modules/g.test(__stack[1].getFileName())
 		if global.last_function.length >= 10
 			global.last_function.shift()
@@ -180,7 +180,7 @@ Function::sync2 = (obj, args) ->
 	err = undefined
 	result = undefined
 	yielded = false
-	
+
 	###if /^\//g.test(__stack[1].getFileName()) and !/node_modules/g.test(__stack[1].getFileName())
 		if global.last_function.length >= 10
 			global.last_function.shift()
@@ -311,7 +311,7 @@ Sync.Fiber = (fn, callback) ->
 			fiber.futures.push ticket
 			return
 
-		# Run body		
+		# Run body
 		try
 			# call fn and wait for result
 			result = fn(Fiber.current)
@@ -419,7 +419,7 @@ Function::async = (context) ->
 
 ###*
 # Used for writing synchronous middleware-style functions
-# 
+#
 # throw "something" --> next('something')
 # return --> next()
 # return null --> next()

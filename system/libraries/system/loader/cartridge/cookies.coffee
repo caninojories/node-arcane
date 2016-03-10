@@ -1,6 +1,6 @@
-package export cartridge.cookies
+#!package export cartridge.cookies
 
-import system.Middleware
+#!import system.Middleware
 
 class cookies extends Middleware
 
@@ -20,7 +20,7 @@ class cookies extends Middleware
 				path: '/'
 			get: cookies.get
 		}
-		
+
 		ret.options.port = port_num[1] if port_num[1]?
 
 		# ret = {}

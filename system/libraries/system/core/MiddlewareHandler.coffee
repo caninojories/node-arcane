@@ -1,8 +1,7 @@
-package export system.core.MiddlewareHandler
+#!package export system.core.MiddlewareHandler
 
-# import system.tools.params
-import tools.wait
-import sqli
+#!import tools.wait
+#!import sqli
 
 class Store
 	@stack: []
@@ -38,8 +37,8 @@ class MiddlewareHandler
 	constructor: (@name) ->
 
 		# console.log @name
-		# 
-	
+		#
+
 	flow: (req, res) ->
 		# console.log req.url, '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
 
@@ -75,12 +74,12 @@ class MiddlewareHandler
 
 		# console.log Store.stack
 		# console.log Store.flow
-		
+
 	use: (handler, result) ->
 		# console.log 'USE USE USE'
 		# console.log (new Error).stack
 		# self = this
-		
+
 		# console.log typeof handler
 
 		if typeof handler is 'function'
@@ -98,7 +97,7 @@ class MiddlewareHandler
 
 				# console.log ret
 
-				result(null, ret) if typeof result is 'function' 
+				result(null, ret) if typeof result is 'function'
 			catch err
 				throw err if typeof err is 'string'
 				# console.log err, '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>'
@@ -134,5 +133,3 @@ class MiddlewareHandler
 
 
 	@set: (name, value) ->
-
-

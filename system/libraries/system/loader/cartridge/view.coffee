@@ -1,13 +1,10 @@
-package export cartridge.view
+#!package export cartridge.view
 
-import system.Middleware
-# import system.Sync
-
-import fs
-import path
-import harmony-proxy
-
-import tools.wait
+#!import system.Middleware
+#!import fs
+#!import path
+#!import harmony-proxy
+#!import tools.wait
 
 class view extends Middleware
 

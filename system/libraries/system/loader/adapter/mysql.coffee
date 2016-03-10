@@ -1,7 +1,7 @@
-package export MySQL
+#!package export MySQL
 
-import mysql
-import util
+#!import mysql
+#!import util
 
 class MySQL
 

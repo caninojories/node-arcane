@@ -1,11 +1,11 @@
-package export cartridge.controller
+#!package export cartridge.controller
 
-import system.Middleware
+#!import system.Middleware
 
-import fs
-import path
+#!import fs
+#!import path
 
-import system.tools.pathToRegexp
+#!import system.tools.pathToRegexp
 
 class controller extends Middleware
 

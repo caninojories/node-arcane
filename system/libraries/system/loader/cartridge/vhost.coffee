@@ -1,9 +1,8 @@
-package export cartridge.vhost
+#!package export cartridge.vhost
 
-import system.Middleware
-
-import os
-import path
+#!import system.Middleware
+#!import os
+#!import path
 
 class vhost extends Middleware
 

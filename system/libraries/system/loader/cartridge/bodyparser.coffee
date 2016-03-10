@@ -1,10 +1,10 @@
-package export cartridge.bodyparser
+#!package export cartridge.bodyparser
 
-import system.Middleware
+#!import system.Middleware
 
-import querystring
-import fs
-import path
+#!import querystring
+#!import fs
+#!import path
 
 class bodyparser extends Middleware
 

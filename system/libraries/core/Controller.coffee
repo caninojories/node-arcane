@@ -1,10 +1,10 @@
-package export core.Controller
+#!package export core.Controller
 
-import harmony-proxy
-import util
-import path
-import fs
-import tools.typescript
+#!import harmony-proxy
+#!import util
+#!import path
+#!import fs
+#!import tools.typescript
 
 class Controller
 

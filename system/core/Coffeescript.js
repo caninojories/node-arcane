@@ -114,9 +114,9 @@ var code_replacer = function(code, options) {
   var splited_code = code.split('\n');
   var codes = [];
   for(var line in splited_code) {
-    codes.push(splited_code[line].replace(/^import\s.*/g, function(match) {
+    codes.push(splited_code[line].replace(/^\#\!import\s.*/g, function(match) {
 
-      var regex = /^import\s(.+?)\sin\s([^\s]*|[^#]*|[^$]*)|import\s([^\s]*|[^#]*|[^$]*)/g.exec(match), ret = '';
+      var regex = /^\#\!import\s(.+?)\sin\s([^\s]*|[^#]*|[^$]*)|\#\!import\s([^\s]*|[^#]*|[^$]*)/g.exec(match), ret = '';
 
       if(regex) {
 
@@ -182,8 +182,8 @@ var code_replacer = function(code, options) {
   codes = [];
   splited_code = code.split('\n');
   for(var line in splited_code) {
-    codes.push(splited_code[line].replace(/^package(\sexport|)\s([a-zA-Z0-9\.\-\_]+)?(\s(.*)|)$/g, function(match) {
-      var regex = /package(\sexport|)\s([a-zA-Z0-9\.\-\_]+)?(\s(.*)|)$/g.exec(match),
+    codes.push(splited_code[line].replace(/^\#\!package(\sexport|)\s([a-zA-Z0-9\.\-\_]+)?(\s(.*)|)$/g, function(match) {
+      var regex = /\#\!package(\sexport|)\s([a-zA-Z0-9\.\-\_]+)?(\s(.*)|)$/g.exec(match),
         ret = '';
       if (regex) {
         var vname = regex[2].split('.');

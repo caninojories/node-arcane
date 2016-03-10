@@ -1,14 +1,14 @@
 ###---------------------------------------------------------------------------------------------
   Copyright 2015 - 2015 Arcane Project
-  
+
 ###
-package SocketIODisconnect
+#!package SocketIODisconnect
 
 ###---------------------------------------------------------------------------------------------
 # This class represents for connection configuration.
 #
 # @author [author]
-# @version [version] 
+# @version [version]
 ###
 class SocketIODisconnect
 

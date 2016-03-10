@@ -1,6 +1,6 @@
-package export tools.params
+#!package export tools.params
 
-import system.core.*
+#!import system.core.*
 
 class params extends core.WObject
 

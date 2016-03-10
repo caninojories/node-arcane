@@ -1,12 +1,12 @@
-package export cartridge.assets
+#!package export cartridge.assets
 
-import system.Middleware
-import fs
-import path
-import crypto
+#!import system.Middleware
+#!import fs
+#!import path
+#!import crypto
 
-import tools.http.etag
-import tools.http.mime
+#!import tools.http.etag
+#!import tools.http.mime
 
 class assets extends Middleware
 
